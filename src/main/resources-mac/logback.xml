@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE xml>
+<configuration>
+	<appender name="DEFAULT" class="ch.qos.logback.core.ConsoleAppender">
+		<encoder>
+			<pattern>%d{yyyy-MM-dd HH:mm:ss} [%-5level] %logger\(%M:%L\) - %msg%n</pattern>
+		</encoder>
+	</appender>
+
+	<appender name="ASYNC_DEFAULT" class="ch.qos.logback.classic.AsyncAppender">
+		<param name="includeCallerData" value="true" />
+		<param name="discardingThreshold" value="10" />
+		<param name="queueSize" value="1024" />
+		<appender-ref ref="DEFAULT" />
+	</appender>
+
+	
+	<!-- Application Loggers -->
+	<logger name="instame2" additivity="false">
+		<level value="debug" />
+		<appender-ref ref="console" />
+	</logger>
+	<logger name="statistics" additivity="false">
+		<level value="debug" />
+		<appender-ref ref="console" />
+	</logger>
+	<!-- 3rdparty Loggers -->
+	<logger name="org.apache" additivity="false">
+		<level value="debug"/>
+		<appender-ref ref="console" />
+	</logger>
+	<logger name="net.fortuna" additivity="false">
+		<level value="debug"/>
+		<appender-ref ref="console" />
+	</logger>
+	<logger name="java.sql" additivity="false">
+		<level value="debug" />
+		<appender-ref ref="console" />
+	</logger>
+	<logger name="com.ibatis" additivity="false">
+		<level value="debug" />
+		<appender-ref ref="console" />
+	</logger>
+	<logger name="org.springframework.core" additivity="false">
+		<level value="debug" />
+		<appender-ref ref="console" />
+	</logger>
+	<logger name="org.springframework.beans" additivity="false">
+		<level value="debug" />
+		<appender-ref ref="console" />
+	</logger>
+	<logger name="org.springframework.context" additivity="false">
+		<level value="debug" />
+		<appender-ref ref="console" />
+	</logger>
+	<logger name="org.springframework.web" additivity="false">
+		<level value="debug" />
+		<appender-ref ref="console" />
+	</logger>
+
+	<!-- Root Logger -->
+	<root>
+		<priority value="debug" />
+		<appender-ref ref="console" />
+	</root>
+</configuration>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+         http://www.springframework.org/schema/beans/spring-beans-4.0.xsd">
+
+	<bean id="instame2MasterDataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+		<property name="driverClassName" value="com.mysql.jdbc.Driver" />
+		<property name="url"><value><![CDATA[jdbc:mysql://127.0.0.1:3306/db_instame2?useUnicode=true&logSlowQueries=true&explainSlowQueries=true]]></value></property>
+		<property name="username" value="root" />
+		<property name="password" value="" />
+		<property name="defaultAutoCommit" value="true" />
+		<property name="initialSize" value="5" />
+		<property name="maxActive" value="20" />
+		<property name="maxIdle" value="5" />
+		<property name="minIdle" value="5" />
+		<property name="maxWait" value="300" />
+		<property name="validationQuery" value="select 1" />
+		<property name="testOnBorrow" value="false" />
+		<property name="testWhileIdle" value="true" />
+		<property name="timeBetweenEvictionRunsMillis" value="10000" />
+		<property name="numTestsPerEvictionRun" value="5" />
+		<property name="minEvictableIdleTimeMillis" value="600000" />
+	</bean>
+</beans>

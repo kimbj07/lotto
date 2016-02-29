@@ -1,0 +1,253 @@
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
+<sqlMap namespace="lotto">
+	<typeAlias alias="gameInfoForApi" type="lotto.model.GameInfoForApi"/>
+	<typeAlias alias="gameInfoForDB" type="lotto.model.GameInfoForDB"/>
+	<typeAlias alias="myRankInGame" type="lotto.model.MyRankInGame"/>
+	<typeAlias alias="appearanceCount" type="lotto.model.AppearanceCount"/>
+	
+	<typeAlias alias="gameInfoInRamgeParam" type="lotto.param.GameInfoInRangeParam"/>
+	<typeAlias alias="appearanceCountParam" type="lotto.param.AppearanceCountParam"/>
+	
+	<select id="selectTest" resultClass="java.lang.Integer">
+		SELECT 1 FROM DUAL
+	</select>
+	
+	<!--
+	SQLID	: insertGameInfo
+	쿼리설명	: 당첨 정보 저장
+	변수설명	:  
+	-->	
+	<insert id="insertGameInfo" parameterClass="gameInfoForApi">
+		INSERT INTO game_info
+			(game_no, game_date
+			, first_winner_amount, first_winner_count, total_first_winner_amount
+			, second_winner_amount, second_winner_count, total_second_winner_amount
+			, third_winner_amount, third_winner_count, total_third_winner_amount
+			, fourth_winner_amount, fourth_winner_count, total_fourth_winner_amount
+			, fifth_winner_amount, fifth_winner_count, total_fifth_winner_amount
+			, total_winner_count, total_amount, total_sell_amount
+			, manual_winner_count, auto_winner_count)
+		VALUES
+			(#gameNo#, #gameDate#
+			, #firstWinnerAmount#, #firstWinnerCount#, #totalFirstWinnerAmount#
+			, #secondWinnerAmount#, #secondWinnerCount#, #totalSecondWinnerAmount#
+			, #thirdWinnerAmount#, #thirdWinnerCount#, #totalThirdWinnerAmount#
+			, #forthWinnerAmount#, #forthWinnerCount#, #totalForthWinnerAmount#
+			, #fifthWinnerAmount#, #fifthWinnerCount#, #totalFifthWinnerAmount#
+			, #totalWinnerCount#, #totalAmount#, #totalSellAmount#
+			, #manualWinnerCount#, #autoWinnerCount#)
+	</insert>
+	
+	<!--
+	SQLID	: insertWinnerBalls
+	쿼리설명	: 당첨 번호 저장
+	변수설명	: gameNo - 회차
+			  winnerBalls - 당첨번호(6개)
+	-->	
+	<insert id="insertWinnerBalls" parameterClass="java.util.HashMap">
+		SET @idx:= 0;
+		INSERT INTO win_numbers
+			(game_no, number, sequence)
+		VALUES
+		<iterate conjunction="," property="winnerBalls">
+			(#gameNo#, #winnerBalls[]#, @idx:=@idx + 1)
+		</iterate>
+	</insert>
+	
+	<!--
+	SQLID	: insertBonusBall
+	쿼리설명	: 보너스 번호 저장
+	변수설명	: gameNo - 회차
+			  bonusBall - 보너스 번호
+	-->	
+	<insert id="insertBonusBall" parameterClass="java.util.HashMap">
+		INSERT INTO bonus_number(game_no, number) VALUES (#gameNo#, #bonusBall#)
+	</insert>
+	
+	<!--
+	SQLID	: selectLastSavedGameNo
+	쿼리설명	: 가장 최근 회차 조회
+	변수설명	: 
+	-->	
+	<select id="selectLastSavedGameNo" resultClass="java.lang.Integer">
+		SELECT MAX(game_no) FROM game_info
+	</select>
+	
+	<!--
+	SQLID	: selectMyRankInHistory
+	쿼리설명	: 내 번호 역대 당첨 결과 조회
+	변수설명	: myNumbers - 사용자가 선택한 번호 6개
+	-->	
+	<select id="selectMyRankInHistory" parameterClass="java.util.List" resultClass="myRankInGame">
+		SELECT
+			t1.game_no AS gameNo
+			, t1.winNumberCount
+			,	(SELECT
+					COUNT(*)
+				FROM
+					BONUS_NUMBER AS t2
+				WHERE
+					t2.game_no = t1.game_no
+			   	AND
+			   		t2.number IN
+				<iterate open="(" conjunction="," close=")">
+					#myNumbers[]#
+				</iterate>
+			  ) AS bounsNumberCount
+		FROM (
+			SELECT
+				game_no
+				, COUNT(*) AS winNumberCount
+			FROM
+				WIN_NUMBERS
+			WHERE
+				number IN
+				<iterate open="(" conjunction="," close=")">
+					#myNumbers[]#
+				</iterate>
+			GROUP BY
+				game_no) AS t1
+		WHERE
+			winNumberCount <![CDATA[>]]>= 3
+		ORDER BY gameNo
+	</select>
+	
+	<!--
+	SQLID	: selectAppearanceCount
+	쿼리설명	: 번호 출현 빈도수 조회
+	변수설명	: from - 조회 범위
+			  to -  조회 범위
+			  sortBy - 정렬 필드(winCount, bonusCount, sumCount, number)
+			  order - 정렬 방식(ASC, DESC)
+	-->	
+	<select id="selectAppearanceCount" parameterClass="appearanceCountParam" resultClass="appearanceCount">
+		SELECT
+			number
+			, winCount
+			, bonusCount
+			, (winCount + bonusCount) AS sumCount
+		FROM(
+			SELECT
+				tt1.number
+				, (CASE WHEN tt1.win_count IS NULL THEN 0 ELSE tt1.win_count END) AS winCount
+				, (CASE WHEN tt2.bonus_count IS NULL THEN 0 ELSE tt2.bonus_count END) AS bonusCount	
+			FROM (
+				SELECT
+					t1.number
+					, t2.win_count
+				FROM
+					number_info AS t1
+				LEFT JOIN (
+					SELECT
+						number
+						, COUNT(*) AS win_count
+					FROM
+						win_numbers
+					<isNotEmpty property="from">
+						<isNotEmpty property="to">
+					WHERE game_no BETWEEN #from# AND #to#
+						</isNotEmpty>
+					</isNotEmpty>
+					GROUP BY
+						number
+				) AS t2
+				ON
+					t1.number = t2.number
+			) AS tt1
+			LEFT JOIN (
+				SELECT
+					number
+					, COUNT(*) AS bonus_count
+				FROM
+					bonus_number
+				<isNotEmpty property="from">
+					<isNotEmpty property="to">
+				WHERE game_no BETWEEN #from# AND #to#
+					</isNotEmpty>
+				</isNotEmpty>
+				GROUP BY
+					number
+			) AS tt2
+			ON
+				tt1.number = tt2.number
+		) AS ttt1
+		ORDER BY $sortBy$ $order$
+		<isNotEmpty property="count">
+		LIMIT #count#
+		</isNotEmpty>
+	</select>
+	
+	<!--
+	SQLID	: selectGameInfoInRange
+	쿼리설명	: 게임 정보 조회
+	변수설명	: from - 조회 범위
+			  to -  조회 범위
+			  order - 정렬 방식(ASC, DESC)
+	-->	
+	<select id="selectGameInfoInRange" parameterClass="gameInfoInRamgeParam" resultClass="gameInfoForDB">
+		SELECT
+			tt1.game_no AS gameNo
+			, tt3.game_date AS gameDate
+			, firstBall
+			, secondBall
+			, thirdBall
+			, fourthBall
+			, fifthBall
+			, sixthBall
+			, tt2.number AS bonusBall
+			, tt3.first_winner_amount AS firstWinnerAmount
+			, tt3.first_winner_count AS firstWinnerCount
+			, tt3.total_first_winner_amount AS totalFirstWinnerAmount
+			, tt3.second_winner_amount AS secondWinnerAmount
+			, tt3.second_winner_count AS secondWinnerCount
+			, tt3.total_second_winner_amount AS totalSecondWinnerAmount
+			, tt3.third_winner_amount AS thirdWinnerAmount
+			, tt3.third_winner_count AS thirdWinnerCount
+			, tt3.total_third_winner_amount AS totalThirdWinnerAmount	
+			, tt3.fourth_winner_amount AS fourthWinnerAmount
+			, tt3.fourth_winner_count AS fourthWinnerCount
+			, tt3.total_fourth_winner_amount AS totalFourthWinnerAmount	
+			, tt3.fifth_winner_amount AS fifthWinnerAmount
+			, tt3.fifth_winner_count AS fifthWinnerCount
+			, tt3.total_fifth_winner_amount AS totalFifthWinnerAmount	
+			, tt3.total_winner_count AS totalWinnerCount
+			, tt3.total_amount AS totalAmount
+			, tt3.total_sell_amount AS totalSellAmount
+			, tt3.manual_winner_count AS manualWinnerCount
+			, tt3.auto_winner_count	AS autoWinnerCount
+		FROM (
+			SELECT
+				game_no
+				, SUM(firstBall) AS firstBall
+				, SUM(secondBall) AS secondBall
+				, SUM(thirdBall) AS thirdBall
+				, SUM(fourthBall) AS fourthBall
+				, SUM(fifthBall) AS fifthBall
+				, SUM(sixthBall) AS sixthBall
+			FROM (
+				SELECT
+					game_no,
+					(CASE WHEN sequence = 1 THEN number ELSE 0 END) AS firstBall
+					, (CASE WHEN sequence = 2 THEN number ELSE 0 END) AS secondBall
+					, (CASE WHEN sequence = 3 THEN number ELSE 0 END) AS thirdBall
+					, (CASE WHEN sequence = 4 THEN number ELSE 0 END) AS fourthBall
+					, (CASE WHEN sequence = 5 THEN number ELSE 0 END) AS fifthBall
+					, (CASE WHEN sequence = 6 THEN number ELSE 0 END) AS sixthBall
+				FROM
+					win_numbers
+				<isNotEmpty property="from">
+					<isNotEmpty property="to">
+				WHERE game_no BETWEEN #from# AND #to#
+					</isNotEmpty>
+				</isNotEmpty>
+			) AS t1
+			GROUP BY
+				game_no
+		) AS tt1, bonus_number AS tt2, game_info AS tt3
+		WHERE
+			tt2.game_no = tt1.game_no
+		AND
+			tt3.game_no = tt1.game_no
+		ORDER BY gameNo $order$
+	</select>
+</sqlMap>
