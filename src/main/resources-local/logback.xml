@@ -15,40 +15,40 @@
 	</appender>
 
 	<!-- Application Loggers -->
-	<logger name="instame2" additivity="false" level="debug">
+	<logger name="instame2" additivity="false" level="info">
 	    <appender-ref ref="ASYNC_DEFAULT" />
 	</logger>
-	<logger name="statistics" additivity="false" level="debug">
+	<logger name="statistics" additivity="false" level="info">
 	    <appender-ref ref="ASYNC_DEFAULT" />
 	</logger>
 	<!-- 3rdparty Loggers -->
-	<logger name="org.apache" additivity="false" level="debug">
+	<logger name="org.apache" additivity="false" level="info">
 	    <appender-ref ref="ASYNC_DEFAULT" />
 	</logger>
-	<logger name="net.fortuna" additivity="false" level="debug">
+	<logger name="net.fortuna" additivity="false" level="info">
 	    <appender-ref ref="ASYNC_DEFAULT" />
 	</logger>
-	<logger name="java.sql" additivity="false" level="debug">
+	<logger name="java.sql" additivity="false" level="info">
 	    <appender-ref ref="ASYNC_DEFAULT" />
 	</logger>
-	<logger name="com.ibatis" additivity="false" level="debug">
+	<logger name="com.ibatis" additivity="false" level="info">
 	    <appender-ref ref="ASYNC_DEFAULT" />
 	</logger>
-	<logger name="org.springframework.core" additivity="false" level="debug">
+	<logger name="org.springframework.core" additivity="false" level="info">
 	    <appender-ref ref="ASYNC_DEFAULT" />
 	</logger>
-	<logger name="org.springframework.beans" additivity="false" level="debug">
+	<logger name="org.springframework.beans" additivity="false" level="info">
 	    <appender-ref ref="ASYNC_DEFAULT" />
 	</logger>
-	<logger name="org.springframework.context" additivity="false" level="debug">
+	<logger name="org.springframework.context" additivity="false" level="info">
 	    <appender-ref ref="ASYNC_DEFAULT" />
 	</logger>
-	<logger name="org.springframework.web" additivity="false" level="debug" >
+	<logger name="org.springframework.web" additivity="false" level="info" >
 	    <appender-ref ref="ASYNC_DEFAULT" />
 	</logger>
 
 	<!-- Root Logger -->
-	<root level="debug">
+	<root level="info">
 	    <appender-ref ref="ASYNC_DEFAULT" />
 	</root>
 </configuration>

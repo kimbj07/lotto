@@ -7,13 +7,13 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
-import lotto.model.AppearanceCount;
-import lotto.model.GameInfoForDB;
-
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.math.RandomUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+
+import lotto.model.AppearanceCount;
+import lotto.model.GameInfoForDB;
 
 public class LottoRandomMachine {
 	@SuppressWarnings("unused")
@@ -47,7 +47,7 @@ public class LottoRandomMachine {
 		// 3. 최근 보너스 번호 3개 선택 가능 번호에서 제외
 		removeLatestThreeBonusNumber(numbers, gameInfos);
 
-		// 4. 가장 많이 나온 3개 번호 선택 자능 번호에서 제외
+		// 4. 가장 많이 나온 1개 번호 선택 자능 번호에서 제외
 		removeThreeMaxAppearancedNumber(numbers, appearanceCounts);
 
 		// 5. 번호 추첨
@@ -200,7 +200,7 @@ public class LottoRandomMachine {
 		return choiced.getNumber();
 	}
 
-	private static final int MAX_APPEARANCE_LIMIT_INDEX = 3;
+	private static final int MAX_APPEARANCE_LIMIT_INDEX = 1;
 
 	/**
 	 * 가장 많이 나온 번호 3개를 선택 가능한 번호 목록에서 제외
