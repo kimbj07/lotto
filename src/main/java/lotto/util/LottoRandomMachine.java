@@ -47,7 +47,7 @@ public class LottoRandomMachine {
 		// 3. 최근 보너스 번호 3개 선택 가능 번호에서 제외
 		removeLatestThreeBonusNumber(numbers, gameInfos);
 
-		// 4. 가장 많이 나온 1개 번호 선택 자능 번호에서 제외
+		// 4. 가장 많이 나온 2개 번호 선택 자능 번호에서 제외
 		removeThreeMaxAppearancedNumber(numbers, appearanceCounts);
 
 		// 5. 번호 추첨
@@ -164,7 +164,7 @@ public class LottoRandomMachine {
 		return appearanceCounts.get(index).getNumber();
 	}
 
-	private static final int N_WEEKS_AGO = 2;
+	private static final int N_WEEKS_AGO = 3;
 
 	/**
 	 * N주 전 당첨 번호 중 하나 랜던 선택
@@ -182,7 +182,7 @@ public class LottoRandomMachine {
 		return numbers.get(choosedIndex);
 	}
 
-	private static final int MIN_APPEARANCE_LIMIT_INDEX = 5;
+	private static final int MIN_APPEARANCE_LIMIT_INDEX = 8;
 
 	/**
 	 * 가장 적게 나온 번호 5개중 하나 랜덤 선택
@@ -200,7 +200,7 @@ public class LottoRandomMachine {
 		return choiced.getNumber();
 	}
 
-	private static final int MAX_APPEARANCE_LIMIT_INDEX = 1;
+	private static final int MAX_APPEARANCE_LIMIT_INDEX = 2;
 
 	/**
 	 * 가장 많이 나온 번호 3개를 선택 가능한 번호 목록에서 제외
