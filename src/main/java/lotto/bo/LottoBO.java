@@ -139,7 +139,7 @@ public class LottoBO {
 	}
 
 	public Set<Integer> recommendNumbers() {
-		// 1. 최근 3회 로또 정보 조회
+		// 1. 최근 N회 로또 정보 조회
 		List<GameInfoForDB> gameInfos = acquireLatestThreeGameInfo();
 
 		// 2. 가장 많이 나온 번호 순 조회
@@ -150,7 +150,7 @@ public class LottoBO {
 	}
 
 	/**
-	 * 최근 3회 로또 정보 조회
+	 * 최근 10회 로또 정보 조회
 	 * @return
 	 */
 	private List<GameInfoForDB> acquireLatestThreeGameInfo() {
@@ -159,7 +159,7 @@ public class LottoBO {
 
 		// 2. 최근 3회 로또 정보 조회
 		GameInfoInRangeParam param = new GameInfoInRangeParam();
-		param.setFrom(Math.max(0, lastSavedGameNo - 3));
+		param.setFrom(Math.max(0, lastSavedGameNo - 10));
 		param.setTo(lastSavedGameNo);
 
 		return lottoDAO.selectGameInfoInRange(param);

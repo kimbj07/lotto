@@ -2,6 +2,7 @@ package lotto.util;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -27,7 +28,24 @@ public class LottoRandomMachine {
 	private static final int WIN_NUMBER_COUNT = 6;
 
 	public static Set<Integer> recommendNumbers(List<GameInfoForDB> gameInfos, List<AppearanceCount> appearanceCounts) {
-		return recommendNumbers(gameInfos, appearanceCounts, null, null);
+		Set<Integer> excludeNumbers = getRandomNumberAWeekAgo(gameInfos);
+		return recommendNumbers(gameInfos, appearanceCounts, excludeNumbers, null);
+	}
+
+	public static Set<Integer> getRandomNumberAWeekAgo(List<GameInfoForDB> gameInfos) {
+		GameInfoForDB aWeekAgoGameInfo = gameInfos.get(0);
+		List<Integer> aWeeksAgoNumbers = aWeekAgoGameInfo.getNumbers();
+		Collections.shuffle(aWeeksAgoNumbers);
+
+		GameInfoForDB twoWeekAgoGameInfo = gameInfos.get(1);
+		List<Integer> twoWeeksAgoNumbers = twoWeekAgoGameInfo.getNumbers();
+		Collections.shuffle(twoWeeksAgoNumbers);
+
+		Set<Integer> result = new HashSet<Integer>();
+		result.addAll(aWeeksAgoNumbers.subList(0, 3));
+		result.addAll(twoWeeksAgoNumbers.subList(0, 2));
+
+		return result;
 	}
 
 	/**
@@ -44,10 +62,10 @@ public class LottoRandomMachine {
 		// 2. 선택 가능한 번호 목록에서 제외/포함 시켜야할 번호 제외
 		removeIncludeExcludeNumbers(numbers, includeNumbers, excludeNumbers);
 
-		// 3. 최근 보너스 번호 3개 선택 가능 번호에서 제외
+		// 3. 최근 보너스 번호 4개 선택 가능 번호에서 제외
 		removeLatestThreeBonusNumber(numbers, gameInfos);
 
-		// 4. 가장 많이 나온 2개 번호 선택 자능 번호에서 제외
+		// 4. 가장 많이 나온 4개 번호 선택 가능 번호에서 제외
 		removeThreeMaxAppearancedNumber(numbers, appearanceCounts);
 
 		// 5. 번호 추첨
@@ -68,8 +86,8 @@ public class LottoRandomMachine {
 		addAndRemoveChoicedNumber(recommendedNumbers, numbers, randomNumber);
 
 		// 5-4. n 주전 당첨 번호 중 하나 랜덤 추첨
-		randomNumber = chooseInTheNWeeksAgoRandomly(gameInfos);
-		addAndRemoveChoicedNumber(recommendedNumbers, numbers, randomNumber);
+//		randomNumber = chooseInTheNWeeksAgoRandomly(gameInfos);
+//		addAndRemoveChoicedNumber(recommendedNumbers, numbers, randomNumber);
 
 		// 5-5. 나머지 번호 추첨
 		int choiceCount = WIN_NUMBER_COUNT - recommendedNumbers.size(); // 추첨 해야할 번호 개수
@@ -148,7 +166,7 @@ public class LottoRandomMachine {
 	}
 
 	private static final int MAX_APPEARANCE_FROM_INDEX = 4;
-	private static final int MAX_APPEARANCE_TO_INDEX = 8;
+	private static final int MAX_APPEARANCE_TO_INDEX = 9;
 
 	/**
 	 * n ~ m 번째로 많이 나온 번호 중 하나 랜덤 선택
@@ -164,7 +182,7 @@ public class LottoRandomMachine {
 		return appearanceCounts.get(index).getNumber();
 	}
 
-	private static final int N_WEEKS_AGO = 3;
+	private static final int N_WEEKS_AGO = 8;
 
 	/**
 	 * N주 전 당첨 번호 중 하나 랜던 선택
@@ -182,7 +200,7 @@ public class LottoRandomMachine {
 		return numbers.get(choosedIndex);
 	}
 
-	private static final int MIN_APPEARANCE_LIMIT_INDEX = 8;
+	private static final int MIN_APPEARANCE_LIMIT_INDEX = 9;
 
 	/**
 	 * 가장 적게 나온 번호 5개중 하나 랜덤 선택
@@ -200,7 +218,7 @@ public class LottoRandomMachine {
 		return choiced.getNumber();
 	}
 
-	private static final int MAX_APPEARANCE_LIMIT_INDEX = 2;
+	private static final int MAX_APPEARANCE_LIMIT_INDEX = 4;
 
 	/**
 	 * 가장 많이 나온 번호 3개를 선택 가능한 번호 목록에서 제외
@@ -218,7 +236,7 @@ public class LottoRandomMachine {
 		}
 	}
 
-	private static final int LATEST_GAME_LIMIT_INDEX = 3;
+	private static final int LATEST_GAME_LIMIT_INDEX = 4;
 
 	/**
 	 * 최근 3회 보너스 번호 선택 가능 목록에서 제외
