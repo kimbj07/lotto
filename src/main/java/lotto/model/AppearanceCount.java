@@ -1,5 +1,7 @@
 package lotto.model;
 
+import org.apache.commons.lang.builder.ToStringBuilder;
+
 public class AppearanceCount {
 	private int number;
 	private int winCount;
@@ -36,5 +38,9 @@ public class AppearanceCount {
 
 	public void setSumCount(int sumCount) {
 		this.sumCount = sumCount;
+	}
+	
+	public String toString() {
+		return ToStringBuilder.reflectionToString(this);
 	}
 }

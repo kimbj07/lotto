@@ -22,12 +22,11 @@ import lotto.model.MyRankInGame;
 import support.AbstractTestBase;
 
 public class LottoBOIntegrationTest extends AbstractTestBase {
-	private int N = 12928;
+	private int N = 607;
 
 	@Autowired
 	private LottoBO lottoBO;
 
-	//		@Ignore
 	@Test
 	public void 최근_로또_정보_DB저장() throws Exception {
 		lottoBO.saveLottoInfoToLatest();
@@ -36,25 +35,25 @@ public class LottoBOIntegrationTest extends AbstractTestBase {
 	@Test
 	public void 내_번호_확인() {
 		SortedSet<Integer> myNumbers = new TreeSet<Integer>();
-		myNumbers.add(4);
-		myNumbers.add(28);
+		myNumbers.add(2);
+		myNumbers.add(5);
 		myNumbers.add(9);
-		myNumbers.add(21);
-		myNumbers.add(8);
 		myNumbers.add(23);
+		myNumbers.add(21);
+		myNumbers.add(43);
 
 		List<MyRankInGame> actual = lottoBO.checkMyNumbersInHistory(myNumbers);
-		MyRankInGame myRankInGame;
+		
+		for (MyRankInGame myRankInGame : actual) {
+			System.out.println(myRankInGame.getGameNo() + " : " + myRankInGame.getWinNumberCount());
+		}
+	}
 
-		myRankInGame = actual.get(0);
-		assertThat(myRankInGame.getGameNo(), is(46));
-		assertThat(myRankInGame.getWinNumberCount(), is(3));
-		assertThat(myRankInGame.getBounsNumberCount(), is(0));
-
-		myRankInGame = actual.get(9);
-		assertThat(myRankInGame.getGameNo(), is(533));
-		assertThat(myRankInGame.getWinNumberCount(), is(5));
-		assertThat(myRankInGame.getBounsNumberCount(), is(1));
+	@Test
+	public void 번호_랜덤_추천() {
+		Set<Integer> actual = lottoBO.recommendRandomNumbers();
+		System.out.println(actual);
+		assertThat(actual.size(), is(6));
 	}
 
 	@Test

@@ -2,12 +2,19 @@ package lotto.bo;
 
 import java.security.InvalidParameterException;
 import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
+import java.util.TreeSet;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.ObjectUtils;
+import org.apache.commons.lang.math.RandomUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +38,7 @@ import lotto.util.LottoURL;
 @Component
 public class LottoBO {
 	private static final Log log = LogFactory.getLog(LottoBO.class);
+	private final int LOTTO_MAX_NUMBER = 45;
 
 	@Autowired
 	public LottoDAO lottoDAO;
@@ -147,6 +155,38 @@ public class LottoBO {
 
 		// 3. 번호 추첨
 		return LottoRandomMachine.recommendNumbers(gameInfos, appearanceCounts);
+	}
+
+	/**
+	 * 랜덤 번호 추출
+	 * 
+	 * @return
+	 */
+	public Set<Integer> recommendRandomNumbers() {
+		final Map<Integer, Integer> numbers = new HashMap<Integer, Integer>();
+		
+		for (int i = 1; i <= LOTTO_MAX_NUMBER; i++) {
+			numbers.put(i, 0);
+		}
+		
+		for (int i = 0; i < 82921; i++) {
+			int random = RandomUtils.nextInt(LOTTO_MAX_NUMBER) + 1;
+			numbers.put(random, numbers.get(random) + 1);
+		}
+		
+		List<Integer> keys = new ArrayList<Integer>(numbers.keySet());
+
+		Collections.sort(keys, new Comparator<Integer>() {
+			@Override
+			public int compare(Integer o1, Integer o2) {
+				Integer v1 = numbers.get(o1);
+				Integer v2 = numbers.get(o2);
+				return v1.compareTo(v2);
+			}
+		});
+
+		Collections.reverse(keys);
+		return new TreeSet<Integer>(keys.subList(0,  6));
 	}
 
 	/**
