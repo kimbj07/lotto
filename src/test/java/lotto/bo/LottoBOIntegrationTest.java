@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
+import org.apache.commons.lang.math.RandomUtils;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -22,7 +23,7 @@ import lotto.model.MyRankInGame;
 import support.AbstractTestBase;
 
 public class LottoBOIntegrationTest extends AbstractTestBase {
-	private int N = 607;
+	private int N = RandomUtils.nextInt(990) + 9;
 
 	@Autowired
 	private LottoBO lottoBO;
