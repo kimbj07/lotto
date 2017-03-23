@@ -5,14 +5,13 @@ import static org.junit.Assert.assertThat;
 
 import java.util.List;
 
+import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import lotto.model.AppearanceCount;
 import lotto.model.GameInfoForDB;
 import lotto.param.AppearanceCountParam;
 import lotto.param.GameInfoInRangeParam;
-
-import org.junit.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-
 import support.AbstractTestBase;
 
 public class LottoDAOTest extends AbstractTestBase {

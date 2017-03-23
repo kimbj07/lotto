@@ -44,7 +44,7 @@ public class LottoBOIntegrationTest extends AbstractTestBase {
 		myNumbers.add(43);
 
 		List<MyRankInGame> actual = lottoBO.checkMyNumbersInHistory(myNumbers);
-		
+
 		for (MyRankInGame myRankInGame : actual) {
 			System.out.println(myRankInGame.getGameNo() + " : " + myRankInGame.getWinNumberCount());
 		}
@@ -55,6 +55,13 @@ public class LottoBOIntegrationTest extends AbstractTestBase {
 		Set<Integer> actual = lottoBO.recommendRandomNumbers();
 		System.out.println(actual);
 		assertThat(actual.size(), is(6));
+	}
+
+	@Test
+	public void 랜덤추천_제외번호지정() {
+		Integer[] exceptionNumbers = {4, 5, 7, 8, 9, 11, 13, 16, 17, 22, 23, 37, 41, 42, 43};
+		Set<Integer> actual = lottoBO.recommendNumbersWithoutExceptionNumbers(exceptionNumbers);
+		System.out.println(actual);
 	}
 
 	@Test
@@ -80,16 +87,16 @@ public class LottoBOIntegrationTest extends AbstractTestBase {
 		}
 
 		LinkedHashMap<Integer, Integer> sortedResult = sortByComparator(result);
-		
-		Set<Integer> recommand  = new TreeSet<Integer>();
+
+		Set<Integer> recommand = new TreeSet<Integer>();
 		for (Map.Entry<Integer, Integer> entry : sortedResult.entrySet()) {
 			recommand.add(entry.getKey());
-			
+
 			if (recommand.size() >= 6) {
 				break;
 			}
 		}
-		
+
 		System.out.println("\n\n");
 		System.out.println("Recommand Numbers : " + recommand);
 		System.out.println(sortedResult);

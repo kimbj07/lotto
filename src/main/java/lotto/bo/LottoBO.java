@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -39,6 +40,7 @@ import lotto.util.LottoURL;
 public class LottoBO {
 	private static final Log log = LogFactory.getLog(LottoBO.class);
 	private final int LOTTO_MAX_NUMBER = 45;
+	private final int SELECT_COUNT = 6;
 
 	@Autowired
 	public LottoDAO lottoDAO;
@@ -146,6 +148,11 @@ public class LottoBO {
 		return lottoDAO.selectGameInfoInRange(params);
 	}
 
+	/**
+	 * 번호 랜덤 추천 
+	 * 
+	 * @return
+	 */
 	public Set<Integer> recommendNumbers() {
 		// 1. 최근 N회 로또 정보 조회
 		List<GameInfoForDB> gameInfos = acquireLatestThreeGameInfo();
@@ -155,6 +162,41 @@ public class LottoBO {
 
 		// 3. 번호 추첨
 		return LottoRandomMachine.recommendNumbers(gameInfos, appearanceCounts);
+	}
+
+	/**
+	 * 제외번호를 제외한 램덤 추천
+	 * 
+	 * @param exceptionNumbers
+	 * @return
+	 */
+	public Set<Integer> recommendNumbersWithoutExceptionNumbers(Integer[] exceptionNumbers) {
+		Set<Integer> numbers = new HashSet<Integer>();
+		for (int i = 1; i <= LOTTO_MAX_NUMBER; i++) {
+			numbers.add(i);
+		}
+		
+		for (int number : exceptionNumbers) {
+			numbers.remove(number);
+		}
+		
+		List<Integer> candidateNumbers = new ArrayList<Integer>(numbers);
+		Collections.shuffle(candidateNumbers);
+		
+		Set<Integer> recommendNumbers = new TreeSet<>();
+		while (true) {
+			int index = RandomUtils.nextInt(candidateNumbers.size());
+			int canidateNumber = candidateNumbers.get(index);
+			if (recommendNumbers.contains(canidateNumber) == false) {
+				recommendNumbers.add(candidateNumbers.get(index));
+			}
+			
+			if (recommendNumbers.size() == SELECT_COUNT) {
+				break;
+			}
+		}
+		
+		return recommendNumbers;
 	}
 
 	/**
@@ -186,7 +228,7 @@ public class LottoBO {
 		});
 
 		Collections.reverse(keys);
-		return new TreeSet<Integer>(keys.subList(0,  6));
+		return new TreeSet<Integer>(keys.subList(0,  SELECT_COUNT));
 	}
 
 	/**
