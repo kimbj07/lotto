@@ -6,6 +6,7 @@ import static org.junit.Assert.assertThat;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -15,7 +16,6 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
-import org.apache.commons.lang.math.RandomUtils;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -23,7 +23,7 @@ import lotto.model.MyRankInGame;
 import support.AbstractTestBase;
 
 public class LottoBOIntegrationTest extends AbstractTestBase {
-	private int N = RandomUtils.nextInt(990) + 9;
+	private int N = 1;
 
 	@Autowired
 	private LottoBO lottoBO;
@@ -36,12 +36,12 @@ public class LottoBOIntegrationTest extends AbstractTestBase {
 	@Test
 	public void 내_번호_확인() {
 		SortedSet<Integer> myNumbers = new TreeSet<Integer>();
-		myNumbers.add(2);
-		myNumbers.add(5);
+		myNumbers.add(4);
+		myNumbers.add(8);
 		myNumbers.add(9);
-		myNumbers.add(23);
 		myNumbers.add(21);
-		myNumbers.add(43);
+		myNumbers.add(23);
+		myNumbers.add(28);
 
 		List<MyRankInGame> actual = lottoBO.checkMyNumbersInHistory(myNumbers);
 
@@ -59,8 +59,16 @@ public class LottoBOIntegrationTest extends AbstractTestBase {
 
 	@Test
 	public void 랜덤추천_제외번호지정() {
-		Integer[] exceptionNumbers = {4, 5, 7, 8, 9, 11, 13, 16, 17, 22, 23, 37, 41, 42, 43};
-		Set<Integer> actual = lottoBO.recommendNumbersWithoutExceptionNumbers(exceptionNumbers);
+		Set<Integer> exceptionNumbers = lottoBO.recommendRandomNumbers();
+		exceptionNumbers.addAll(lottoBO.recommendNumbers());
+		Set<Integer> actual = lottoBO.recommendNumbersWithoutExceptionNumbers(exceptionNumbers.toArray(new Integer[]{}));
+		System.out.println(actual);
+	}
+
+	@Test
+	public void 랜덤추천_추천번호제외지정() {
+		Set<Integer> exceptionNumbers = new HashSet<Integer>(lottoBO.recommendExceptionNumbers());
+		Set<Integer> actual = lottoBO.recommendNumbersWithoutExceptionNumbers(exceptionNumbers.toArray(new Integer[]{}));
 		System.out.println(actual);
 	}
 

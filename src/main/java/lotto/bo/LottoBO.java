@@ -53,7 +53,7 @@ public class LottoBO {
 	 */
 	public void saveLottoInfoToLatest() throws ParseException, InterruptedException {
 		// 1. 가장 최근의 로또 추첨 횟수 조회(LottoAPI 호출)		
-		int latestGameNo = acquireLatestGameNo();
+		int latestGameNo = LottoApiRequestHelper.getLatestGameNo();
 
 		// 2. DB에 저장되어 있는 가장 최근의 로또 추첨횟수 조회
 		int lastSavedGameNo = lottoDAO.selectLastSavedGameNo();
@@ -66,21 +66,6 @@ public class LottoBO {
 			Thread.sleep(2000);
 			log.info("Complete to save " + gameNo + "th Lotto Info");
 		}
-	}
-
-	/**
-	 * 가장 최근 로또 추첨 횟수 조회(LottoAPI 호출)
-	 * 
-	 * @return - 가장 최근 로또 회차
-	 */
-	private int acquireLatestGameNo() {
-		JSONObject latestGameInfo = (JSONObject)LottoApiRequestHelper.executeRequest(LottoURL.LATEST_GAME_INFO);
-		if (latestGameInfo == null) {
-			log.error("Fail to acquire latest game info!");
-			return 0;
-		}
-
-		return latestGameInfo.getInt(LottoConstant.Api.GAME_NO);
 	}
 
 	/**
@@ -165,6 +150,22 @@ public class LottoBO {
 	}
 
 	/**
+	 * 번호 랜덤 추천 
+	 * 
+	 * @return
+	 */
+	public Set<Integer> recommendExceptionNumbers() {
+		// 1. 최근 N회 로또 정보 조회
+		List<GameInfoForDB> gameInfos = acquireLatestThreeGameInfo();
+
+		// 2. 가장 많이 나온 번호 순 조회
+		List<AppearanceCount> appearanceCounts = lottoDAO.selectAppearanceCount(new AppearanceCountParam()); // 가장 많이 나온 번호 조회
+
+		// 3. 번호 추첨
+		return LottoRandomMachine.recommendExceptionNumbers(gameInfos, appearanceCounts);
+	}
+
+	/**
 	 * 제외번호를 제외한 램덤 추천
 	 * 
 	 * @param exceptionNumbers
@@ -211,7 +212,7 @@ public class LottoBO {
 			numbers.put(i, 0);
 		}
 		
-		for (int i = 0; i < 82921; i++) {
+		for (int i = 0; i < 19820921; i++) {
 			int random = RandomUtils.nextInt(LOTTO_MAX_NUMBER) + 1;
 			numbers.put(random, numbers.get(random) + 1);
 		}

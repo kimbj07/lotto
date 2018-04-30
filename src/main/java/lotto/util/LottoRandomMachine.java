@@ -28,7 +28,8 @@ public class LottoRandomMachine {
 	private static final int WIN_NUMBER_COUNT = 6;
 
 	public static Set<Integer> recommendNumbers(List<GameInfoForDB> gameInfos, List<AppearanceCount> appearanceCounts) {
-		Set<Integer> excludeNumbers = getRandomNumberAWeekAgo(gameInfos);
+		// Set<Integer> excludeNumbers = getRandomNumberAWeekAgo(gameInfos);
+		Set<Integer> excludeNumbers = null;
 		return recommendNumbers(gameInfos, appearanceCounts, excludeNumbers, null);
 	}
 
@@ -62,10 +63,10 @@ public class LottoRandomMachine {
 		// 2. 선택 가능한 번호 목록에서 제외/포함 시켜야할 번호 제외
 		removeIncludeExcludeNumbers(numbers, includeNumbers, excludeNumbers);
 
-		// 3. 최근 보너스 번호 4개 선택 가능 번호에서 제외
+		// 3. 최근 보너스 번호 2개 선택 가능 번호에서 제외
 		removeLatestThreeBonusNumber(numbers, gameInfos);
 
-		// 4. 가장 많이 나온 4개 번호 선택 가능 번호에서 제외
+		// 4. 가장 많이 나온 2개 번호 선택 가능 번호에서 제외
 		removeThreeMaxAppearancedNumber(numbers, appearanceCounts);
 
 		// 5. 번호 추첨
@@ -98,6 +99,35 @@ public class LottoRandomMachine {
 		if (recommendedNumbers.size() != WIN_NUMBER_COUNT) {
 			throw new RuntimeException("Fail to choose numbers");
 		}
+
+		return recommendedNumbers;
+	}
+
+	public static Set<Integer> recommendExceptionNumbers(List<GameInfoForDB> gameInfos, List<AppearanceCount> appearanceCounts) {
+		// 1. 선택 가능한 번호 생성
+		Set<Integer> numbers = new HashSet<Integer>(NUMBERS);
+
+		// 2. 최근 보너스 번호 4개 선택 가능 번호에서 제외
+		removeLatestThreeBonusNumber(numbers, gameInfos);
+
+		// 3. 가장 많이 나온 4개 번호 선택 가능 번호에서 제외
+		removeThreeMaxAppearancedNumber(numbers, appearanceCounts);
+
+		// 5. 번호 추첨
+		Set<Integer> recommendedNumbers = new TreeSet<Integer>();
+		Integer randomNumber;
+
+		// 5-1. 가장 적게 나온 번호 n개중 하나 랜덤 추첨
+		randomNumber = chooseInTheLowestRamdomly(appearanceCounts);
+		addAndRemoveChoicedNumber(recommendedNumbers, numbers, randomNumber);
+
+		// 5-2. n ~ m 번째로 많이 나온 번호 중 하나 랜덤 추첨
+		randomNumber = chooseBetweenFromAndToRandomly(appearanceCounts);
+		addAndRemoveChoicedNumber(recommendedNumbers, numbers, randomNumber);
+
+		// 5-3. n 주전 당첨 번호 중 하나 랜덤 추첨
+		randomNumber = chooseInTheNWeeksAgoRandomly(gameInfos);
+		addAndRemoveChoicedNumber(recommendedNumbers, numbers, randomNumber);
 
 		return recommendedNumbers;
 	}
@@ -165,7 +195,7 @@ public class LottoRandomMachine {
 		return choicedNumbers;
 	}
 
-	private static final int MAX_APPEARANCE_FROM_INDEX = 4;
+	private static final int MAX_APPEARANCE_FROM_INDEX = 9;
 	private static final int MAX_APPEARANCE_TO_INDEX = 9;
 
 	/**
@@ -218,7 +248,7 @@ public class LottoRandomMachine {
 		return choiced.getNumber();
 	}
 
-	private static final int MAX_APPEARANCE_LIMIT_INDEX = 4;
+	private static final int MAX_APPEARANCE_LIMIT_INDEX = 2;
 
 	/**
 	 * 가장 많이 나온 번호 3개를 선택 가능한 번호 목록에서 제외
@@ -236,7 +266,7 @@ public class LottoRandomMachine {
 		}
 	}
 
-	private static final int LATEST_GAME_LIMIT_INDEX = 4;
+	private static final int LATEST_GAME_LIMIT_INDEX = 2;
 
 	/**
 	 * 최근 3회 보너스 번호 선택 가능 목록에서 제외
