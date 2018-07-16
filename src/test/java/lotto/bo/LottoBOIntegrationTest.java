@@ -23,7 +23,7 @@ import lotto.model.MyRankInGame;
 import support.AbstractTestBase;
 
 public class LottoBOIntegrationTest extends AbstractTestBase {
-	private int N = 1;
+	private int N = 1982;
 
 	@Autowired
 	private LottoBO lottoBO;
