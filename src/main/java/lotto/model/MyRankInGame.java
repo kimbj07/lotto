@@ -28,4 +28,9 @@ public class MyRankInGame {
 	public void setBounsNumberCount(int bounsNumberCount) {
 		this.bounsNumberCount = bounsNumberCount;
 	}
+
+	@Override
+	public String toString() {
+		return String.format("%d : %d", gameNo, winNumberCount);
+	}
 }
