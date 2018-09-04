@@ -68,8 +68,7 @@ public class LottoBO {
         // 3. DB에 저장되어 있지 않은 로또 정보 저장
         for (int gameNo = lastSavedGameNo + 1; gameNo <= latestGameNo; gameNo++) {
             log.info("Start to save " + gameNo + "th Lotto Info");
-            JSONObject responseGameNo = (JSONObject) LottoApiRequestHelper.executeRequest(
-                    LottoURL.GAME_INFO + gameNo);
+            JSONObject responseGameNo = (JSONObject) LottoApiRequestHelper.executeRequest(LottoURL.GAME_INFO + gameNo);
             saveGameInfo(responseGameNo);
             Thread.sleep(2000);
             log.info("Complete to save " + gameNo + "th Lotto Info");
@@ -152,8 +151,7 @@ public class LottoBO {
         List<GameInfoForDB> gameInfos = acquireLatestThreeGameInfo();
 
         // 2. 가장 많이 나온 번호 순 조회
-        List<AppearanceCount> appearanceCounts = lottoDAO.selectAppearanceCount(
-                new AppearanceCountParam()); // 가장 많이 나온 번호 조회
+        List<AppearanceCount> appearanceCounts = lottoDAO.selectAppearanceCount(new AppearanceCountParam());
 
         // 3. 번호 추첨
         return LottoRandomMachine.recommendNumbers(gameInfos, appearanceCounts);
@@ -169,8 +167,7 @@ public class LottoBO {
         List<GameInfoForDB> gameInfos = acquireLatestThreeGameInfo();
 
         // 2. 가장 많이 나온 번호 순 조회
-        List<AppearanceCount> appearanceCounts = lottoDAO.selectAppearanceCount(
-                new AppearanceCountParam()); // 가장 많이 나온 번호 조회
+        List<AppearanceCount> appearanceCounts = lottoDAO.selectAppearanceCount(new AppearanceCountParam());
 
         // 3. 번호 추첨
         return LottoRandomMachine.recommendExceptionNumbers(gameInfos, appearanceCounts);
@@ -212,7 +209,7 @@ public class LottoBO {
               });
 
         numbers.keySet()
-               .forEach(n -> System.out.println( n + " : " + numbers.get(n)));
+               .forEach(n -> System.out.println(n + " : " + numbers.get(n)));
 
         return numbers.keySet()
                       .stream()

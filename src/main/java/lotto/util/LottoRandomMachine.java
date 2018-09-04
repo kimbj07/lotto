@@ -7,6 +7,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.math.RandomUtils;
@@ -71,7 +72,7 @@ public class LottoRandomMachine {
 
 		// 5. 번호 추첨
 		// 5-1. 포함시켜야할 번호 추천 번호 목록에 추가
-		Set<Integer> recommendedNumbers = new TreeSet<Integer>();
+		Set<Integer> recommendedNumbers = new TreeSet<>();
 		if (CollectionUtils.isNotEmpty(includeNumbers)) {
 			recommendedNumbers.addAll(includeNumbers);
 		}
@@ -105,7 +106,7 @@ public class LottoRandomMachine {
 
 	public static Set<Integer> recommendExceptionNumbers(List<GameInfoForDB> gameInfos, List<AppearanceCount> appearanceCounts) {
 		// 1. 선택 가능한 번호 생성
-		Set<Integer> numbers = new HashSet<Integer>(NUMBERS);
+		Set<Integer> numbers = new HashSet<>(NUMBERS);
 
 		// 2. 최근 보너스 번호 4개 선택 가능 번호에서 제외
 		removeLatestThreeBonusNumber(numbers, gameInfos);
@@ -114,7 +115,7 @@ public class LottoRandomMachine {
 		removeThreeMaxAppearancedNumber(numbers, appearanceCounts);
 
 		// 5. 번호 추첨
-		Set<Integer> recommendedNumbers = new TreeSet<Integer>();
+		Set<Integer> recommendedNumbers = new TreeSet<>();
 		Integer randomNumber;
 
 		// 5-1. 가장 적게 나온 번호 n개중 하나 랜덤 추첨
@@ -182,17 +183,13 @@ public class LottoRandomMachine {
 		}
 
 		// 1. 선택 가능한 번호 목록 형 변환(Set -> List)
-		List<Integer> availableNumbers = new ArrayList<Integer>(numbers);
-		Set<Integer> choicedNumbers = new TreeSet<Integer>();
+		List<Integer> availableNumbers = new ArrayList<>(numbers);
 
-		// 2. 번호 추첨
-		for (int i = 0; i < selectCount; i++) {
-			int index = RandomUtils.nextInt(availableNumbers.size()); // 랜덤 추첨
-			choicedNumbers.add(availableNumbers.get(index)); // 선택된 번호 추천 번호 목록에 추가
-			availableNumbers.remove(index); // 선택된 번호 선택 가능한 번호 목록에서 제거
-		}
+		// 2. shuffle
+		Collections.shuffle(availableNumbers);
 
-		return choicedNumbers;
+		// 3. choose numbers
+        return new TreeSet<>(availableNumbers.subList(0, selectCount));
 	}
 
 	private static final int MAX_APPEARANCE_FROM_INDEX = 9;

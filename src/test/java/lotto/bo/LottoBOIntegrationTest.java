@@ -59,16 +59,14 @@ public class LottoBOIntegrationTest extends AbstractTestBase {
     public void 랜덤추천_제외번호지정() {
         Set<Integer> exceptionNumbers = lottoBO.recommendRandomNumbers();
         exceptionNumbers.addAll(lottoBO.recommendNumbers());
-        Set<Integer> actual = lottoBO.recommendNumbersWithoutExceptionNumbers(
-                new ArrayList<>(exceptionNumbers));
+        Set<Integer> actual = lottoBO.recommendNumbersWithoutExceptionNumbers(new ArrayList<>(exceptionNumbers));
         System.out.println(actual);
     }
 
     @Test
     public void 랜덤추천_추천번호제외지정() {
         Set<Integer> exceptionNumbers = new HashSet<>(lottoBO.recommendExceptionNumbers());
-        Set<Integer> actual = lottoBO.recommendNumbersWithoutExceptionNumbers(
-                new ArrayList<>(exceptionNumbers));
+        Set<Integer> actual = lottoBO.recommendNumbersWithoutExceptionNumbers(new ArrayList<>(exceptionNumbers));
         System.out.println(actual);
     }
 

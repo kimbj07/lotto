@@ -46,7 +46,6 @@ public class LottoApiRequestHelper {
 			method.setRequestHeader("User-Agent", IE_USER_AGENT);
 			new HttpClient().executeMethod(method);
 			String html = IOUtils.toString(method.getResponseBodyAsStream(), "EUC-KR");
-			System.out.println(html);
 			String latestGameNo = StringUtils.substringBefore(StringUtils.substringAfter(html, "lottoDrwNo\">"), "<");
 			return NumberUtils.toInt(latestGameNo, 0);
 		} catch (Exception e) {
