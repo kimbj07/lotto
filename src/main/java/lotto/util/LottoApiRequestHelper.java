@@ -14,48 +14,50 @@ import net.sf.json.JSONSerializer;
 import lotto.bo.LottoBO;
 
 public class LottoApiRequestHelper {
-	public static final String IE_USER_AGENT = "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; MAAU; .NET4.0C; .NET4.0E; InfoPath.2; rv:11.0) like Gecko";
+    public static final String IE_USER_AGENT =
+            "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; MAAU; .NET4.0C; .NET4.0E; InfoPath.2; rv:11.0) like Gecko";
 
-	private static final Log log = LogFactory.getLog(LottoBO.class);
+    private static final Log log = LogFactory.getLog(LottoBO.class);
 
-	/**
-	 * 
-	 * @param requestURL
-	 * @return
-	 */
-	public static Object executeRequest(String requestURL) {
-		Object json = null;
+    /**
+     *
+     * @param requestURL
+     * @return
+     */
+    public static Object executeRequest(String requestURL) {
+        Object json = null;
 
-		HttpMethod method = new GetMethod(requestURL);
-		try {
-			method.setRequestHeader("User-Agent", IE_USER_AGENT);
-			new HttpClient().executeMethod(method);
-			json = JSONSerializer.toJSON(IOUtils.toString(method.getResponseBodyAsStream(), "EUC-KR"));
-		} catch (Exception e) {
-			log.error("init method error", e);
-		} finally {
-			method.releaseConnection();
-		}
+        HttpMethod method = new GetMethod(requestURL);
+        try {
+            method.setRequestHeader("User-Agent", IE_USER_AGENT);
+            new HttpClient().executeMethod(method);
+            json = JSONSerializer.toJSON(IOUtils.toString(method.getResponseBodyAsStream(), "EUC-KR"));
+        } catch (Exception e) {
+            log.error("init method error", e);
+        } finally {
+            method.releaseConnection();
+        }
 
-		return json;
-	}
+        return json;
+    }
 
-	public static int getLatestGameNo() {
-		HttpMethod method = new GetMethod(LottoURL.LATEST_GAME_INFO);
-		try {
-			method.setRequestHeader("User-Agent", IE_USER_AGENT);
-			new HttpClient().executeMethod(method);
-			String html = IOUtils.toString(method.getResponseBodyAsStream(), "EUC-KR");
-			String latestGameNo = StringUtils.substringBefore(StringUtils.substringAfter(html, "lottoDrwNo\">"), "<");
-			return NumberUtils.toInt(latestGameNo, 0);
-		} catch (Exception e) {
-			log.error("init method error", e);
-		} finally {
-			method.releaseConnection();
-		}
+    public static int getLatestGameNo() {
+        HttpMethod method = new GetMethod(LottoURL.LATEST_GAME_INFO);
+        try {
+            method.setRequestHeader("User-Agent", IE_USER_AGENT);
+            new HttpClient().executeMethod(method);
+            String html = IOUtils.toString(method.getResponseBodyAsStream(), "EUC-KR");
+            String latestGameNo = StringUtils.substringBefore(
+                    StringUtils.substringAfter(html, "<h3 class=\"time\"><strong>"), "<");
+            return NumberUtils.toInt(latestGameNo, 0);
+        } catch (Exception e) {
+            log.error("init method error", e);
+        } finally {
+            method.releaseConnection();
+        }
 
-		return 0;
-		
-	}
+        return 0;
+
+    }
 
 }

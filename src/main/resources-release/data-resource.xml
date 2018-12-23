@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <dataResource>
-	<statisticsFileName>statistics.log</statisticsFileName>
-	<logDir>/home/hosting_users/enkeivy/tomcat/logs/</logDir>
+    <statisticsFileName>statistics.log</statisticsFileName>
+    <logDir>/home/hosting_users/enkeivy/tomcat/logs/</logDir>
 </dataResource>

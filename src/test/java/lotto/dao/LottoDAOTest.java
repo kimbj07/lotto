@@ -15,18 +15,18 @@ import lotto.param.GameInfoInRangeParam;
 import support.AbstractTestBase;
 
 public class LottoDAOTest extends AbstractTestBase {
-	@Autowired
-	private LottoDAO lottoDAO;
+    @Autowired
+    private LottoDAO lottoDAO;
 
-	@Test
-	public void selectAppearanceCountTest() {
-		List<AppearanceCount> actual = lottoDAO.selectAppearanceCount(new AppearanceCountParam());
-		assertThat(actual.size(), is(45));
-	}
+    @Test
+    public void selectAppearanceCountTest() {
+        List<AppearanceCount> actual = lottoDAO.selectAppearanceCount(new AppearanceCountParam());
+        assertThat(actual.size(), is(45));
+    }
 
-	@Test
-	public void selectGameInfoInRnageTest() {
-		List<GameInfoForDB> actual = lottoDAO.selectGameInfoInRange(new GameInfoInRangeParam());
-		System.out.println(actual);
-	}
+    @Test
+    public void selectGameInfoInRnageTest() {
+        List<GameInfoForDB> actual = lottoDAO.selectGameInfoInRange(new GameInfoInRangeParam());
+        System.out.println(actual);
+    }
 }

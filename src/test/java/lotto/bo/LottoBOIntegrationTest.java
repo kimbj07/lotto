@@ -4,14 +4,9 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
@@ -40,7 +35,7 @@ public class LottoBOIntegrationTest extends AbstractTestBase {
     public void 내_번호_확인() {
 //        SortedSet<Integer> myNumbers = Stream.of(4, 8, 9, 21, 23, 28)
 //                                             .collect(Collectors.toCollection(TreeSet::new));
-        SortedSet<Integer> myNumbers = Stream.of(2, 5, 9, 21, 23, 43)
+        SortedSet<Integer> myNumbers = Stream.of(9, 10, 13, 28, 38, 45)
                                              .collect(Collectors.toCollection(TreeSet::new));
 
         lottoBO.checkMyNumbersInHistory(myNumbers)
@@ -59,14 +54,16 @@ public class LottoBOIntegrationTest extends AbstractTestBase {
     public void 랜덤추천_제외번호지정() {
         Set<Integer> exceptionNumbers = lottoBO.recommendRandomNumbers();
         exceptionNumbers.addAll(lottoBO.recommendNumbers());
-        Set<Integer> actual = lottoBO.recommendNumbersWithoutExceptionNumbers(new ArrayList<>(exceptionNumbers));
+        Set<Integer> actual = lottoBO.recommendNumbersWithoutExceptionNumbers(
+                new ArrayList<>(exceptionNumbers));
         System.out.println(actual);
     }
 
     @Test
     public void 랜덤추천_추천번호제외지정() {
         Set<Integer> exceptionNumbers = new HashSet<>(lottoBO.recommendExceptionNumbers());
-        Set<Integer> actual = lottoBO.recommendNumbersWithoutExceptionNumbers(new ArrayList<>(exceptionNumbers));
+        Set<Integer> actual = lottoBO.recommendNumbersWithoutExceptionNumbers(
+                new ArrayList<>(exceptionNumbers));
         System.out.println(actual);
     }
 

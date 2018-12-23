@@ -1,37 +1,37 @@
 <!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
 <sqlMap namespace="statistics">
-	<typeAlias type="statistics.model.StatisticsLog" alias="statisticsLog"/>
-	<typeAlias type="statistics.model.StatisticsCount" alias="statisticsCount"/>
-	
-	<select id="selectRegisterUserStatistics" resultClass="java.util.HashMap">
+    <typeAlias type="statistics.model.StatisticsLog" alias="statisticsLog" />
+    <typeAlias type="statistics.model.StatisticsCount" alias="statisticsCount" />
+
+    <select id="selectRegisterUserStatistics" resultClass="java.util.HashMap">
 		SELECT COUNT(*) AS totalUser
 	   		   , SUM(CASE WHEN createTime > DATE_FORMAT(NOW(), '%Y-%m-%d') THEN 1 ELSE 0 END) AS todayUser
 		FROM user_info
 	</select>
-	
-	<insert id="insertActionCount" parameterClass="java.util.HashMap">
+
+    <insert id="insertActionCount" parameterClass="java.util.HashMap">
 		INSERT INTO STATISTICS
 		VALUES(#logDate#, #action#, #count#)
 	</insert>
-	
-	<insert id="insertStatisticsRawLog" parameterClass="statisticsLog">
+
+    <insert id="insertStatisticsRawLog" parameterClass="statisticsLog">
 		INSERT INTO STATISTICS_RAW (userAction, message, logTime)
 		VALUE (#action#, #message#, #loggingTime#)
 	</insert>
-	
-	<select id="selectStatisticsCount" parameterClass="java.util.HashMap" resultClass="statisticsCount">
-		SELECT logDate AS logDate
-			, userAction AS action
-			, actionCount AS count
-		FROM STATISTICS
-		WHERE logDate BETWEEN #fromDate# AND #toDate#
-		<isNotEmpty property="actionType">
-		AND userAction = #actionType#
-		</isNotEmpty>
-		ORDER BY logDate
-	</select>
-	
-	<select id="selectRawStatistics" parameterClass="java.util.HashMap" resultClass="statisticsLog">
+
+    <select id="selectStatisticsCount" parameterClass="java.util.HashMap" resultClass="statisticsCount">
+        SELECT logDate AS logDate
+        , userAction AS action
+        , actionCount AS count
+        FROM STATISTICS
+        WHERE logDate BETWEEN #fromDate# AND #toDate#
+        <isNotEmpty property="actionType">
+            AND userAction = #actionType#
+        </isNotEmpty>
+        ORDER BY logDate
+    </select>
+
+    <select id="selectRawStatistics" parameterClass="java.util.HashMap" resultClass="statisticsLog">
 		SELECT DATE_FORMAT(logTime, '%Y-%m-%d %H:%h:%s') AS loggingTime
 			, userAction AS action
 			, message AS message
@@ -40,26 +40,27 @@
 		ORDER BY logTime
 		LIMIT #from#, #count#		
 	</select>
-	
-	<select id="selectRawStatisticsTotalCount" parameterClass="java.util.HashMap" resultClass="java.lang.Integer">
+
+    <select id="selectRawStatisticsTotalCount" parameterClass="java.util.HashMap"
+            resultClass="java.lang.Integer">
 		SELECT COUNT(1)
 		FROM STATISTICS_RAW
 		WHERE logTime BETWEEN CONCAT(#fromDate#, ' 00:00:00') AND CONCAT(#toDate#, ' 23:59:59')
 	</select>
-	
-	<select id="selectMemberTotalCount" resultClass="java.lang.Integer">
+
+    <select id="selectMemberTotalCount" resultClass="java.lang.Integer">
 		SELECT COUNT(*) AS cnt
 		FROM USER_INFO		 
 	</select>
-	
-	<delete id="deleteStatisticsRawLog" parameterClass="java.lang.String">
+
+    <delete id="deleteStatisticsRawLog" parameterClass="java.lang.String">
 		 DELETE FROM STATISTICS_RAW
 		 WHERE logTime LIKE CONCAT(#value#, ' %')
 	</delete>
-	
-	<delete id="deleteStatisticsCount" parameterClass="java.lang.String">
+
+    <delete id="deleteStatisticsCount" parameterClass="java.lang.String">
 		 DELETE FROM STATISTICS
 		 WHERE logDate = #value#
 	</delete>
-	
+
 </sqlMap>

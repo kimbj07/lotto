@@ -2,26 +2,20 @@ package lotto.bo;
 
 import java.security.InvalidParameterException;
 import java.text.ParseException;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
-import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.lang.ObjectUtils;
-import org.apache.commons.lang.builder.ToStringBuilder;
 import org.apache.commons.lang.math.RandomUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -68,7 +62,8 @@ public class LottoBO {
         // 3. DB에 저장되어 있지 않은 로또 정보 저장
         for (int gameNo = lastSavedGameNo + 1; gameNo <= latestGameNo; gameNo++) {
             log.info("Start to save " + gameNo + "th Lotto Info");
-            JSONObject responseGameNo = (JSONObject) LottoApiRequestHelper.executeRequest(LottoURL.GAME_INFO + gameNo);
+            JSONObject responseGameNo = (JSONObject) LottoApiRequestHelper.executeRequest(
+                    LottoURL.GAME_INFO + gameNo);
             saveGameInfo(responseGameNo);
             Thread.sleep(2000);
             log.info("Complete to save " + gameNo + "th Lotto Info");

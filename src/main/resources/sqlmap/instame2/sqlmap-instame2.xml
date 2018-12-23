@@ -1,14 +1,14 @@
 <!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-2.dtd">
 <sqlMap namespace="instame2">
-	<typeAlias alias="instame2UserInfo" type="instame2.model.Instame2User"/>
-	<typeAlias alias="me2dayUserInfo" type="instame2.model.Me2DayUser"/>
-	<typeAlias alias="loginParam" type="instame2.model.LoginParam"/>
-	
-	<insert id="insertMe2DayUserInfo" parameterClass="me2dayUserInfo">
+    <typeAlias alias="instame2UserInfo" type="instame2.model.Instame2User" />
+    <typeAlias alias="me2dayUserInfo" type="instame2.model.Me2DayUser" />
+    <typeAlias alias="loginParam" type="instame2.model.LoginParam" />
+
+    <insert id="insertMe2DayUserInfo" parameterClass="me2dayUserInfo">
 		INSERT INTO USER_INFO(me2dayId, me2dayKey, me2dayNickName, createTime) VALUES(#userId#, #userKey#, #nickname#, CURRENT_TIMESTAMP)
 	</insert>
-	
-	<update id="updateInstagramUserInfo" parameterClass="java.util.HashMap">
+
+    <update id="updateInstagramUserInfo" parameterClass="java.util.HashMap">
 		UPDATE USER_INFO 
 		SET instagramUserName = #instagramUserName#
 			, instagramSubscriptionId= #instagramSubscriptionId#
@@ -17,24 +17,25 @@
 			, updateTime =  CURRENT_TIMESTAMP
 		WHERE me2dayId = #me2dayId# 
 	</update>
-	
-	<select id="selectInstagramAccessToken" parameterClass="java.lang.String" resultClass="instame2UserInfo">
+
+    <select id="selectInstagramAccessToken" parameterClass="java.lang.String" resultClass="instame2UserInfo">
 		SELECT * FROM USER_INFO
 		WHERE instagramObjectId = #value#
 	</select>
-	
-	<select id="selectInstame2UserInfo" parameterClass="loginParam" resultClass="instame2UserInfo">
+
+    <select id="selectInstame2UserInfo" parameterClass="loginParam" resultClass="instame2UserInfo">
 		SELECT * FROM USER_INFO
 		WHERE me2dayId = #me2dayId#
 		AND instagramUserName = #instagramUserName#
 	</select>
-	
-	<select id="selectInstame2UserInfoForMe2dayId" parameterClass="java.lang.String" resultClass="instame2UserInfo">
+
+    <select id="selectInstame2UserInfoForMe2dayId" parameterClass="java.lang.String"
+            resultClass="instame2UserInfo">
 		SELECT * FROM USER_INFO
 		WHERE me2dayId = #value#
 	</select>
-	
-	<delete id="deleteInstame2UserInfo" parameterClass="loginParam">
+
+    <delete id="deleteInstame2UserInfo" parameterClass="loginParam">
 		DELETE FROM USER_INFO
 		WHERE me2dayId = #me2dayId#
 		AND instagramUserName = #instagramUserName#

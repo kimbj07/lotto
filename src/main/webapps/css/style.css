@@ -1,45 +1,59 @@
 ﻿@charset "utf-8";
 
 body {
-	margin-top: 0px;
-	background-image: url(../images/background.png);
-	background-repeat: repeat-x;
-	text-align: left;
-	line-height: normal;
-	font-family: "나눔고딕";
+    margin-top: 0px;
+    background-image: url(../images/background.png);
+    background-repeat: repeat-x;
+    text-align: left;
+    line-height: normal;
+    font-family: "나눔고딕";
 }
 
-a:link      {color:#0000ff;text-decoration:none}
-a:visited   {color:#9400d3;text-decoration:none}
-a:hover     {text-decoration:underline; cursor: pointer;}
-a:active    {text-decoration:none}
+a:link {
+    color: #0000FF;
+    text-decoration: none
+}
+
+a:visited {
+    color: #9400D3;
+    text-decoration: none
+}
+
+a:hover {
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+a:active {
+    text-decoration: none
+}
 
 .text {
-	color: #222;
-	font-size: 14px;
-	line-height: 24px;
+    color: #222;
+    font-size: 14px;
+    line-height: 24px;
 }
 
 .login {
-	color: #ffdf00;
-	font-size: 14px;
-	font-weight: bold;
-	cursor: pointer;
+    color: #FFDF00;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
 }
 
 .login_dimmed {
-	color: #aaa;
-	font-size: 14px;
+    color: #AAA;
+    font-size: 14px;
 }
 
 .loggedin {
-	color: #fff;
-	font-size: 14px;
-	font-weight: bold;
+    color: #FFF;
+    font-size: 14px;
+    font-weight: bold;
 }
 
 .footer {
-	font-size: 10px;
-	color: #333;
-	text-align: center;
+    font-size: 10px;
+    color: #333;
+    text-align: center;
 }

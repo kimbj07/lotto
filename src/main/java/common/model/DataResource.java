@@ -8,29 +8,29 @@ import javax.xml.bind.annotation.XmlRootElement;
 @XmlRootElement(name = "dataResource")
 @XmlAccessorType(XmlAccessType.FIELD)
 public class DataResource {
-	@XmlElement(name = "statisticsFileName")
-	private String statisticsFileName;
+    @XmlElement(name = "statisticsFileName")
+    private String statisticsFileName;
 
-	@XmlElement(name = "logDir")
-	private String logDir;
+    @XmlElement(name = "logDir")
+    private String logDir;
 
-	public String getStatisticsFileName() {
-		return statisticsFileName;
-	}
+    public String getStatisticsFileName() {
+        return statisticsFileName;
+    }
 
-	public void setStatisticsFileName(String statisticsFileName) {
-		this.statisticsFileName = statisticsFileName;
-	}
+    public void setStatisticsFileName(String statisticsFileName) {
+        this.statisticsFileName = statisticsFileName;
+    }
 
-	public String getLogDir() {
-		return logDir;
-	}
+    public String getLogDir() {
+        return logDir;
+    }
 
-	public void setLogDir(String logDir) {
-		this.logDir = logDir;
-	}
+    public void setLogDir(String logDir) {
+        this.logDir = logDir;
+    }
 
-	public String getStatisticsFileFullPath() {
-		return logDir + statisticsFileName;
-	}
+    public String getStatisticsFileFullPath() {
+        return logDir + statisticsFileName;
+    }
 }

@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE sqlMapConfig PUBLIC "-//iBATIS.com//DTD SQL Map Config 2.0//EN" "http://ibatis.apache.org/dtd/sql-map-config-2.dtd">
+<!DOCTYPE sqlMapConfig PUBLIC "-//iBATIS.com//DTD SQL Map Config 2.0//EN"
+        "http://ibatis.apache.org/dtd/sql-map-config-2.dtd">
 <sqlMapConfig>
-	<settings useStatementNamespaces="true"/>
-	<sqlMap resource="sqlmap/instame2/sqlmap-instame2.xml" />
-	<sqlMap resource="sqlmap/instame2/sqlmap-statistics.xml" />
+    <settings useStatementNamespaces="true" />
+    <sqlMap resource="sqlmap/instame2/sqlmap-instame2.xml" />
+    <sqlMap resource="sqlmap/instame2/sqlmap-statistics.xml" />
 </sqlMapConfig>
