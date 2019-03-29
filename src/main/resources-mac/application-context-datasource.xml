@@ -7,8 +7,7 @@
     <bean id="instame2MasterDataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
         <property name="driverClassName" value="com.mysql.jdbc.Driver" />
         <property name="url">
-            <value>
-                <![CDATA[jdbc:mysql://127.0.0.1:3306/db_instame2?useUnicode=true&logSlowQueries=true&explainSlowQueries=true]]></value>
+            <value><![CDATA[jdbc:mysql://127.0.0.1:3306/db_instame2?useUnicode=true&logSlowQueries=true&explainSlowQueries=true]]></value>
         </property>
         <property name="username" value="root" />
         <property name="password" value="" />

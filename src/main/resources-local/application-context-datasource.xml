@@ -7,11 +7,10 @@
     <bean id="instame2MasterDataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
         <property name="driverClassName" value="com.mysql.jdbc.Driver" />
         <property name="url">
-            <value>
-                <![CDATA[jdbc:mysql://127.0.0.1:3306/lotto?useUnicode=true&logSlowQueries=true&explainSlowQueries=true&allowMultiQueries=true&useSSL=false]]></value>
+            <value><![CDATA[jdbc:mysql://127.0.0.1:3306/lotto?useUnicode=true&logSlowQueries=true&explainSlowQueries=true&allowMultiQueries=true&useSSL=false]]></value>
         </property>
         <property name="username" value="root" />
-        <property name="password" value="nhn1@3nhn" />
+        <property name="password" value="rlaqudwp" />
         <!--
         <property name="url"><value><![CDATA[jdbc:mysql://10.24.29.173:3306/db_instame2?useUnicode=true&logSlowQueries=true&explainSlowQueries=true]]></value></property>
         <property name="username" value="mashup" />
@@ -34,11 +33,10 @@
     <bean id="lottoMasterDataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
         <property name="driverClassName" value="com.mysql.jdbc.Driver" />
         <property name="url">
-            <value>
-                <![CDATA[jdbc:mysql://127.0.0.1:3306/lotto?useUnicode=true&logSlowQueries=true&explainSlowQueries=true&allowMultiQueries=true&useSSL=false]]></value>
+            <value><![CDATA[jdbc:mysql://127.0.0.1:3306/lotto?useUnicode=true&logSlowQueries=true&explainSlowQueries=true&allowMultiQueries=true&useSSL=false]]></value>
         </property>
         <property name="username" value="root" />
-        <property name="password" value="nhn1@3nhn" />
+        <property name="password" value="rlaqudwp" />
         <property name="defaultAutoCommit" value="true" />
         <property name="initialSize" value="5" />
         <property name="maxActive" value="20" />

@@ -48,7 +48,7 @@ public class LottoApiRequestHelper {
             new HttpClient().executeMethod(method);
             String html = IOUtils.toString(method.getResponseBodyAsStream(), "EUC-KR");
             String latestGameNo = StringUtils.substringBefore(
-                    StringUtils.substringAfter(html, "<h3 class=\"time\"><strong>"), "<");
+                    StringUtils.substringAfter(html, "<strong id=\"lottoDrwNo\">"), "<");
             return NumberUtils.toInt(latestGameNo, 0);
         } catch (Exception e) {
             log.error("init method error", e);

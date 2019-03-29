@@ -43,8 +43,8 @@ dependencies {
     compile 'opensymphony:oscache:2.4.1'
     compile 'commons-dbcp:commons-dbcp:1.4'
     compile 'net.sourceforge.jtds:jtds:1.2.4'
-    compile 'org.apache.httpcomponents:httpclient:4.1.2'
-    compile 'org.apache.httpcomponents:httpmime:4.1.2'
+    compile 'org.apache.httpcomponents:httpclient:4.5.2'
+    compile 'org.apache.httpcomponents:httpmime:4.5.2'
     compile 'net.sf.json-lib:json-lib:2.4:jdk15'
 
     runtime 'org.slf4j:jul-to-slf4j:1.7.7'
