@@ -138,7 +138,7 @@ Simple queries (`MAX(game_no)`, `IN (list)` checks, inserts) are run directly vi
 | Method | Route | Handler | Notes |
 |---|---|---|---|
 | `POST` | `/api/sync` | Fetch latest game no from official API, compare with `MAX(game_no)` in DB, insert missing games | Also the Vercel Cron target |
-| `GET` | `/api/recommend` | `?mode=stats\|exception\|random` | Ports `LottoBO.recommendNumbers()`, `recommendExceptionNumbers()`, `recommendRandomNumbers()` |
+| `GET` | `/api/recommend` | `?mode=stats\|exception\|random&exclude=1,2,3` | `stats` → stats-based (`recommendNumbers`); `exception` → excludes recent draws' numbers (`recommendExceptionNumbers`); `random` → pure random; optional `exclude` param passes user-supplied numbers to exclude (`recommendNumbersWithoutExceptionNumbers`) |
 | `GET` | `/api/history` | `?from=&to=&order=ASC\|DESC` | Calls `get_game_info_in_range` RPC |
 | `GET` | `/api/my-numbers` | `?n1=&n2=&n3=&n4=&n5=&n6=` | Validates 6 numbers (1–45, unique), queries match history |
 | `GET` | `/api/stats` | `?from=&to=&sortBy=winCount\|bonusCount\|sumCount\|number&order=ASC\|DESC&count=` | Calls `get_appearance_count` RPC |
