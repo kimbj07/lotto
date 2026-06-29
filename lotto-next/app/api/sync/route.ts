@@ -75,15 +75,17 @@ export async function POST(req: NextRequest) {
       gameInfo.first_ball, gameInfo.second_ball, gameInfo.third_ball,
       gameInfo.fourth_ball, gameInfo.fifth_ball, gameInfo.sixth_ball,
     ]
-    await supabase.from('win_numbers').insert(
+    const { error: wnError } = await supabase.from('win_numbers').insert(
       balls.map((number, i) => ({ game_no: gameInfo.game_no, number, sequence: i + 1 }))
     )
+    if (wnError) { skipped++; continue }
 
     // Insert bonus_number row
-    await supabase.from('bonus_number').insert({
+    const { error: bnError } = await supabase.from('bonus_number').insert({
       game_no: gameInfo.game_no,
       number: gameInfo.bonus_ball,
     })
+    if (bnError) { skipped++; continue }
 
     synced++
 
