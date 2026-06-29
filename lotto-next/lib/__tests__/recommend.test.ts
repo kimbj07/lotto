@@ -38,6 +38,10 @@ describe('recommendRandom', () => {
     expect(new Set(result).size).toBe(6)
     result.forEach(n => expect(n).toBeGreaterThanOrEqual(1))
     result.forEach(n => expect(n).toBeLessThanOrEqual(45))
+    // verify sorted ascending
+    for (let i = 0; i < result.length - 1; i++) {
+      expect(result[i]).toBeLessThan(result[i + 1])
+    }
   })
 })
 
@@ -47,6 +51,10 @@ describe('recommendWithExclusions', () => {
     const result = recommendWithExclusions(exclude)
     expect(result).toHaveLength(6)
     result.forEach(n => expect(exclude).not.toContain(n))
+    // verify sorted ascending
+    for (let i = 0; i < result.length - 1; i++) {
+      expect(result[i]).toBeLessThan(result[i + 1])
+    }
   })
 
   it('throws when too many numbers excluded', () => {
@@ -66,6 +74,10 @@ describe('recommendStats', () => {
     expect(new Set(result).size).toBe(6)
     result.forEach(n => expect(n).toBeGreaterThanOrEqual(1))
     result.forEach(n => expect(n).toBeLessThanOrEqual(45))
+    // verify sorted ascending
+    for (let i = 0; i < result.length - 1; i++) {
+      expect(result[i]).toBeLessThan(result[i + 1])
+    }
   })
 })
 
@@ -84,5 +96,9 @@ describe('recommendException', () => {
     // Last 2 bonus balls (7, 8) should be excluded
     expect(result).not.toContain(7)
     expect(result).not.toContain(8)
+    // verify sorted ascending
+    for (let i = 0; i < result.length - 1; i++) {
+      expect(result[i]).toBeLessThan(result[i + 1])
+    }
   })
 })
