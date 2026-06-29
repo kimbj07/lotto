@@ -4,11 +4,11 @@ import { fetchLatestGameNo, fetchGameInfo } from '@/lib/lotto-api'
 
 // Called by Vercel Cron (see vercel.json) and manually via POST /api/sync.
 // Protected by CRON_SECRET when called from outside Vercel infra.
-export async function POST(req: NextRequest) {
+async function syncHandler(req: NextRequest): Promise<NextResponse> {
   const authHeader = req.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
-  // Vercel sets x-vercel-signature for cron; allow bare secret too for manual calls
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  // Fail-closed: if CRON_SECRET is not set, reject all requests
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -78,14 +78,22 @@ export async function POST(req: NextRequest) {
     const { error: wnError } = await supabase.from('win_numbers').insert(
       balls.map((number, i) => ({ game_no: gameInfo.game_no, number, sequence: i + 1 }))
     )
-    if (wnError) { skipped++; continue }
+    if (wnError) {
+      await supabase.from('game_info').delete().eq('game_no', gameInfo.game_no)
+      skipped++
+      continue
+    }
 
     // Insert bonus_number row
     const { error: bnError } = await supabase.from('bonus_number').insert({
       game_no: gameInfo.game_no,
       number: gameInfo.bonus_ball,
     })
-    if (bnError) { skipped++; continue }
+    if (bnError) {
+      await supabase.from('game_info').delete().eq('game_no', gameInfo.game_no)
+      skipped++
+      continue
+    }
 
     synced++
 
@@ -95,3 +103,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ synced, skipped, latestGameNo, lastSavedGameNo })
 }
+
+// Vercel Cron Jobs send GET requests; manual calls use POST
+export const GET = syncHandler
+export const POST = syncHandler

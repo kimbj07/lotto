@@ -33,12 +33,22 @@ export async function GET(req: NextRequest) {
 
   const supabase = createServerClient()
 
+  // Fetch latest game number to build a targeted 10-game range
+  const { data: latestRow } = await supabase
+    .from('game_info')
+    .select('game_no')
+    .order('game_no', { ascending: false })
+    .limit(1)
+    .single()
+
+  const latestNo = latestRow?.game_no ?? 0
+
   // Fetch last 10 games for stats-based recommendation
   const { data: gamesRaw, error: gamesErr } = await supabase.rpc('get_game_info_in_range', {
-    p_from: null, p_to: null, p_order: 'DESC',
+    p_from: Math.max(1, latestNo - 9), p_to: latestNo, p_order: 'DESC',
   })
   if (gamesErr) return NextResponse.json({ error: gamesErr.message }, { status: 500 })
-  const games = (gamesRaw as GameInfo[]).slice(0, 10)
+  const games = gamesRaw as GameInfo[]
 
   // Fetch appearance counts sorted by win count DESC
   const { data: countsRaw, error: countsErr } = await supabase.rpc('get_appearance_count', {
