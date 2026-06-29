@@ -1,4 +1,4 @@
-import { parseLatestGameNo, parseGameInfo } from '../lotto-api'
+import { parseLatestGameNo, parseGameInfo, fetchLatestGameNo, fetchGameInfo } from '../lotto-api'
 
 describe('parseLatestGameNo', () => {
   it('extracts game number from HTML with lottoDrwNo element', () => {
@@ -43,5 +43,49 @@ describe('parseGameInfo', () => {
   it('returns null when returnValue is not success', () => {
     const json = { returnValue: 'fail' }
     expect(parseGameInfo(json)).toBeNull()
+  })
+})
+
+describe('fetch functions', () => {
+  beforeEach(() => {
+    global.fetch = jest.fn()
+  })
+  afterEach(() => {
+    jest.restoreAllMocks()
+  })
+
+  it('fetchLatestGameNo calls correct URL with IE UA', async () => {
+    ;(global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      text: async () => '<strong id="lottoDrwNo">1149</strong>',
+    })
+    const result = await fetchLatestGameNo()
+    expect(result).toBe(1149)
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://dhlottery.co.kr/common.do?method=main',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'User-Agent': 'Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.1; Trident/4.0)',
+        }),
+      })
+    )
+  })
+
+  it('fetchGameInfo returns GameInfo for valid game', async () => {
+    const mockJson = { returnValue: 'success', drwNo: 1149, drwNoDate: '2024-01-06',
+      drwtNo1: 3, drwtNo2: 14, drwtNo3: 18, drwtNo4: 27, drwtNo5: 40, drwtNo6: 43, bnusNo: 31,
+      firstWinamnt: 1000000000, firstPrzwnerCo: 5, firstAccumamnt: 5000000000,
+      secondWinamnt: 0, secondPrzwnerCo: 0, secondAccumamnt: 0,
+      thirdWinamnt: 0, thirdPrzwnerCo: 0, thirdAccumamnt: 0,
+      fourthWinamnt: 0, fourthPrzwnerCo: 0, fourthAccumamnt: 0,
+      fifthWinamnt: 0, fifthPrzwnerCo: 0, fifthAccumamnt: 0,
+      totSellamnt: 100000000, autoShedCnt: 100, mecoShedCnt: 10 }
+    ;(global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: async () => mockJson,
+    })
+    const result = await fetchGameInfo(1149)
+    expect(result.game_no).toBe(1149)
+    expect(result.first_ball).toBe(3)
   })
 })

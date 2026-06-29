@@ -1,7 +1,7 @@
 import type { GameInfo } from '@/types/lotto'
 
 const USER_AGENT =
-  'Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; SLCC2; .NET CLR 2.0.50727; .NET CLR 3.5.30729; .NET CLR 3.0.30729; Media Center PC 6.0; MAAU; .NET4.0C; .NET4.0E; InfoPath.2; rv:11.0) like Gecko'
+  'Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.1; Trident/4.0)'
 
 const BASE_URL = 'https://dhlottery.co.kr/common.do'
 
@@ -48,7 +48,7 @@ export function parseGameInfo(json: any): GameInfo | null {
   }
 }
 
-export async function getLatestGameNo(): Promise<number> {
+export async function fetchLatestGameNo(): Promise<number> {
   const res = await fetch(`${BASE_URL}?method=main`, {
     headers: { 'User-Agent': USER_AGENT },
     cache: 'no-store',
@@ -57,11 +57,18 @@ export async function getLatestGameNo(): Promise<number> {
   return parseLatestGameNo(html)
 }
 
-export async function fetchGameInfo(gameNo: number): Promise<GameInfo | null> {
-  const res = await fetch(`${BASE_URL}?method=getLottoNumber&drwNo=${gameNo}`, {
+export async function fetchGameInfo(gameNo: number): Promise<GameInfo> {
+  const response = await fetch(`${BASE_URL}?method=getLottoNumber&drwNo=${gameNo}`, {
     headers: { 'User-Agent': USER_AGENT },
     cache: 'no-store',
   })
-  const json = await res.json()
-  return parseGameInfo(json)
+  if (!response.ok) {
+    throw new Error(`Failed to fetch game ${gameNo}: ${response.status}`)
+  }
+  const json = await response.json()
+  const info = parseGameInfo(json)
+  if (!info) {
+    throw new Error(`Invalid data for game ${gameNo}`)
+  }
+  return info
 }
