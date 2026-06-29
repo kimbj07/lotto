@@ -9,7 +9,11 @@ export async function GET(req: NextRequest) {
   const from = searchParams.get('from') ? parseInt(searchParams.get('from')!, 10) : null
   const to = searchParams.get('to') ? parseInt(searchParams.get('to')!, 10) : null
   const sortBy = (searchParams.get('sortBy') ?? 'winCount') as AppearanceSortBy
-  const order = (searchParams.get('order') === 'ASC' ? 'ASC' : 'DESC') as SortOrder
+  const orderParam = searchParams.get('order') ?? 'DESC'
+  if (orderParam !== 'ASC' && orderParam !== 'DESC') {
+    return NextResponse.json({ error: 'order must be ASC or DESC' }, { status: 400 })
+  }
+  const order = orderParam as SortOrder
   const count = searchParams.get('count') ? parseInt(searchParams.get('count')!, 10) : null
 
   if (!VALID_SORT_BY.includes(sortBy)) {
