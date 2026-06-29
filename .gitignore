@@ -2,3 +2,8 @@ target
 .classpath
 .project
 .settings
+.superpowers/
+
+# Next.js project build artifacts
+lotto-next/node_modules/
+lotto-next/.next/
