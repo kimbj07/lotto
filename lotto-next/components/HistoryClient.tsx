@@ -92,7 +92,7 @@ export default function HistoryClient() {
                       bonusBall={g.bonus_ball}
                     />
                   </td>
-                  <td className="p-3 text-right">{g.first_winner_amount.toLocaleString()}원</td>
+                  <td className="p-3 text-right">{(g.first_winner_amount ?? 0).toLocaleString()}원</td>
                   <td className="p-3 text-right">{g.first_winner_count}명</td>
                 </tr>
               ))}
