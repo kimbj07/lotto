@@ -11,6 +11,20 @@ export function createServerClient() {
   })
 }
 
+// Admin client — uses the service_role key, which bypasses RLS and holds
+// write access. SERVER-ONLY: used by the sync route (and the local seed
+// script). Never import this into a Client Component or expose the key to
+// the browser.
+export function createAdminClient() {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!serviceKey) {
+    throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set')
+  }
+  return createClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false },
+  })
+}
+
 // Browser-side singleton (used in Client Components)
 let browserClient: ReturnType<typeof createClient> | null = null
 export function createBrowserClient() {

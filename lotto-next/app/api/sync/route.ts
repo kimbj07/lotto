@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase'
+import { createAdminClient } from '@/lib/supabase'
 import { fetchLatestGameNo, fetchGameInfo } from '@/lib/lotto-api'
 
 // Called by Vercel Cron (see vercel.json) and manually via POST /api/sync.
@@ -12,7 +12,9 @@ async function syncHandler(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const supabase = createServerClient()
+  // Writes use the service_role key (server-only); the public anon key has
+  // read-only access. Requires SUPABASE_SERVICE_ROLE_KEY in the environment.
+  const supabase = createAdminClient()
 
   // 1. Get latest game number from official site
   const latestGameNo = await fetchLatestGameNo()
