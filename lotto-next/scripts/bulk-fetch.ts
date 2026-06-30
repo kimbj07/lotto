@@ -22,9 +22,11 @@
  *                                    NEVER commit or expose to the browser)
  */
 import { createClient } from '@supabase/supabase-js'
-import { fetchLatestGameNo, fetchGameInfo } from '../lib/lotto-api'
+import type { GameInfo } from '../types/lotto'
+import { fetchLatestGameNo, fetchGameInfoWindow } from '../lib/lotto-api'
 
-const THROTTLE_MS = 200 // pause between official-site fetches
+const THROTTLE_MS = 250 // pause between official-site fetches
+const WINDOW = 10 // draws returned per selectPstLt645InfoNew.do call
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -40,6 +42,64 @@ if (!url || !serviceKey) {
 const supabase = createClient(url, serviceKey, {
   auth: { persistSession: false },
 })
+
+// Insert one draw across the 3 tables. Mirrors the sync route, including
+// orphan cleanup if a child insert fails. Returns true on success.
+async function insertGame(gi: GameInfo): Promise<boolean> {
+  const { error: giError } = await supabase.from('game_info').insert({
+    game_no: gi.game_no,
+    game_date: gi.game_date,
+    first_winner_amount: gi.first_winner_amount,
+    first_winner_count: gi.first_winner_count,
+    total_first_winner_amount: gi.total_first_winner_amount,
+    second_winner_amount: gi.second_winner_amount,
+    second_winner_count: gi.second_winner_count,
+    total_second_winner_amount: gi.total_second_winner_amount,
+    third_winner_amount: gi.third_winner_amount,
+    third_winner_count: gi.third_winner_count,
+    total_third_winner_amount: gi.total_third_winner_amount,
+    fourth_winner_amount: gi.fourth_winner_amount,
+    fourth_winner_count: gi.fourth_winner_count,
+    total_fourth_winner_amount: gi.total_fourth_winner_amount,
+    fifth_winner_amount: gi.fifth_winner_amount,
+    fifth_winner_count: gi.fifth_winner_count,
+    total_fifth_winner_amount: gi.total_fifth_winner_amount,
+    total_winner_count: gi.total_winner_count,
+    total_amount: gi.total_amount,
+    total_sell_amount: gi.total_sell_amount,
+    manual_winner_count: gi.manual_winner_count,
+    auto_winner_count: gi.auto_winner_count,
+  })
+  if (giError) {
+    console.warn(`  game ${gi.game_no}: game_info insert failed (${giError.message})`)
+    return false
+  }
+
+  const balls = [
+    gi.first_ball, gi.second_ball, gi.third_ball,
+    gi.fourth_ball, gi.fifth_ball, gi.sixth_ball,
+  ]
+  const { error: wnError } = await supabase.from('win_numbers').insert(
+    balls.map((number, i) => ({ game_no: gi.game_no, number, sequence: i + 1 }))
+  )
+  if (wnError) {
+    await supabase.from('game_info').delete().eq('game_no', gi.game_no)
+    console.warn(`  game ${gi.game_no}: win_numbers insert failed (${wnError.message}) - rolled back`)
+    return false
+  }
+
+  const { error: bnError } = await supabase.from('bonus_number').insert({
+    game_no: gi.game_no,
+    number: gi.bonus_ball,
+  })
+  if (bnError) {
+    await supabase.from('game_info').delete().eq('game_no', gi.game_no)
+    console.warn(`  game ${gi.game_no}: bonus_number insert failed (${bnError.message}) - rolled back`)
+    return false
+  }
+
+  return true
+}
 
 async function main() {
   console.log('Fetching latest game number from dhlottery.co.kr ...')
@@ -73,77 +133,40 @@ async function main() {
 
   let synced = 0
   let skipped = 0
+  const seen = new Set<number>()
 
-  for (let gameNo = startAt; gameNo <= latestGameNo; gameNo++) {
-    let gameInfo
+  // Walk forward in ~10-draw windows. Anchoring at cursor + WINDOW/2 makes the
+  // centered window cover [cursor .. cursor+WINDOW-1], so each request yields a
+  // fresh batch. seen/startAt/latest filters drop overlap and out-of-range rows.
+  let cursor = startAt
+  while (cursor <= latestGameNo) {
+    const anchor = Math.min(cursor + Math.floor(WINDOW / 2), latestGameNo)
+    let window: GameInfo[]
     try {
-      gameInfo = await fetchGameInfo(gameNo)
+      window = await fetchGameInfoWindow(anchor)
     } catch (e) {
-      console.warn(`  game ${gameNo}: fetch failed (${(e as Error).message}) - skipping`)
-      skipped++
-      continue
+      console.warn(`  window @${anchor}: fetch failed (${(e as Error).message}) - retrying`)
+      await new Promise((r) => setTimeout(r, 1000))
+      try {
+        window = await fetchGameInfoWindow(anchor)
+      } catch {
+        console.warn('  retry failed - aborting')
+        break
+      }
+    }
+    if (window.length === 0) break
+
+    window.sort((a, b) => a.game_no - b.game_no)
+    for (const gi of window) {
+      if (gi.game_no < startAt || gi.game_no > latestGameNo || seen.has(gi.game_no)) continue
+      seen.add(gi.game_no)
+      if (await insertGame(gi)) synced++
+      else skipped++
     }
 
-    const { error: giError } = await supabase.from('game_info').insert({
-      game_no: gameInfo.game_no,
-      game_date: gameInfo.game_date,
-      first_winner_amount: gameInfo.first_winner_amount,
-      first_winner_count: gameInfo.first_winner_count,
-      total_first_winner_amount: gameInfo.total_first_winner_amount,
-      second_winner_amount: gameInfo.second_winner_amount,
-      second_winner_count: gameInfo.second_winner_count,
-      total_second_winner_amount: gameInfo.total_second_winner_amount,
-      third_winner_amount: gameInfo.third_winner_amount,
-      third_winner_count: gameInfo.third_winner_count,
-      total_third_winner_amount: gameInfo.total_third_winner_amount,
-      fourth_winner_amount: gameInfo.fourth_winner_amount,
-      fourth_winner_count: gameInfo.fourth_winner_count,
-      total_fourth_winner_amount: gameInfo.total_fourth_winner_amount,
-      fifth_winner_amount: gameInfo.fifth_winner_amount,
-      fifth_winner_count: gameInfo.fifth_winner_count,
-      total_fifth_winner_amount: gameInfo.total_fifth_winner_amount,
-      total_winner_count: gameInfo.total_winner_count,
-      total_amount: gameInfo.total_amount,
-      total_sell_amount: gameInfo.total_sell_amount,
-      manual_winner_count: gameInfo.manual_winner_count,
-      auto_winner_count: gameInfo.auto_winner_count,
-    })
-    if (giError) {
-      console.warn(`  game ${gameNo}: game_info insert failed (${giError.message}) - skipping`)
-      skipped++
-      continue
-    }
-
-    const balls = [
-      gameInfo.first_ball, gameInfo.second_ball, gameInfo.third_ball,
-      gameInfo.fourth_ball, gameInfo.fifth_ball, gameInfo.sixth_ball,
-    ]
-    const { error: wnError } = await supabase.from('win_numbers').insert(
-      balls.map((number, i) => ({ game_no: gameInfo.game_no, number, sequence: i + 1 }))
-    )
-    if (wnError) {
-      await supabase.from('game_info').delete().eq('game_no', gameInfo.game_no)
-      console.warn(`  game ${gameNo}: win_numbers insert failed (${wnError.message}) - rolled back`)
-      skipped++
-      continue
-    }
-
-    const { error: bnError } = await supabase.from('bonus_number').insert({
-      game_no: gameInfo.game_no,
-      number: gameInfo.bonus_ball,
-    })
-    if (bnError) {
-      await supabase.from('game_info').delete().eq('game_no', gameInfo.game_no)
-      console.warn(`  game ${gameNo}: bonus_number insert failed (${bnError.message}) - rolled back`)
-      skipped++
-      continue
-    }
-
-    synced++
-    if (synced % 50 === 0) {
-      console.log(`  ... ${synced} synced (at game ${gameNo} / ${latestGameNo})`)
-    }
-
+    const maxInWindow = window[window.length - 1].game_no
+    cursor = Math.max(cursor + 1, maxInWindow + 1)
+    console.log(`  ... ${synced} synced (through game ${maxInWindow} / ${latestGameNo})`)
     await new Promise((r) => setTimeout(r, THROTTLE_MS))
   }
 
