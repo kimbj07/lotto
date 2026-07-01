@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- **Build on top of merged PR #7** (번추 결과): `app/api/recommend/route.ts` already contains `recordRecommendation(...)` and its test file already exists. Branch off master AFTER PR #7 is merged.
+- **Implemented independently off current master** (no functional dependency on PR #7): current `app/api/recommend/route.ts` has `recommendWithExclusions` + an exclude-bypass branch and **no** recording; there is **no** recommend-route test file yet (Task 2 creates it). PR #7 (번추 결과) also edits these same two files on a separate open branch — whichever merges second resolves a small conflict in `route.ts` + `lib/recommend.ts`. Migration 006 belongs to PR #7 and is irrelevant here.
 - Next.js 14 App Router (RSC + 'use client' split); TypeScript strict; types snake_case.
 - Korean UI copy; OMC design system (`.card`, `.btn-gold`, brand/gold tokens, `font-display`, small `LottoBall`s).
 - Generators always return exactly 6 unique numbers in 1–45, sorted ascending.
@@ -211,67 +211,78 @@ git commit -m "feat: constraint-aware recommenders (include/exclude)"
 
 **Files:**
 - Modify: `app/api/recommend/route.ts`
-- Test: `app/api/recommend/__tests__/route.test.ts`
+- Create: `app/api/recommend/__tests__/route.test.ts`
 
 **Interfaces:**
 - Consumes: `recommendRandom/Stats/Exception(..., { include, exclude })` from Task 1.
-- Produces: `GET /api/recommend?mode=&include=&exclude=` — validated, constraints forwarded to the generator; recording (from PR #7) unchanged, storing the actual mode.
+- Produces: `GET /api/recommend?mode=&include=&exclude=` — validated, constraints forwarded to the generator. (No recording — that is PR #7's concern, absent on this branch.)
 
-- [ ] **Step 1: Update the tests** — in `app/api/recommend/__tests__/route.test.ts`:
-  - Remove the PR-#7 test that asserted `mode === 'custom'` for the exclusions path (that mode no longer exists).
-  - Keep the "records a random recommendation" and "still returns numbers when recording fails" tests.
-  - Add these (the random path needs no `createServerClient` stats mock; it uses only the admin mock already in the file):
+- [ ] **Step 1: Write the failing test** — create `app/api/recommend/__tests__/route.test.ts`. Only the random path is exercised, so **no Supabase mock is needed** (validation runs before `createServerClient`, and the random branch returns before it):
 
 ```ts
-it('applies include/exclude constraints on the random path', async () => {
-  const res = await GET(makeReq('mode=random&include=7&exclude=1,2,3,4,5'))
-  const body = await res.json()
-  expect(res.status).toBe(200)
-  expect(body.numbers).toContain(7)
-  expect(body.numbers.some((n: number) => [1, 2, 3, 4, 5].includes(n))).toBe(false)
-})
+/** @jest-environment node */
+import { GET } from '../route'
+import { NextRequest } from 'next/server'
 
-it('rejects too many include numbers', async () => {
-  const res = await GET(makeReq('mode=random&include=1,2,3,4,5,6'))
-  expect(res.status).toBe(400)
-})
+function makeReq(query: string): NextRequest {
+  return new NextRequest(`http://localhost/api/recommend?${query}`)
+}
 
-it('rejects too many exclude numbers', async () => {
-  const exclude = Array.from({ length: 39 }, (_, i) => i + 1).join(',')
-  const res = await GET(makeReq(`mode=random&exclude=${exclude}`))
-  expect(res.status).toBe(400)
-})
+describe('GET /api/recommend include/exclude', () => {
+  it('applies include/exclude constraints on the random path', async () => {
+    const res = await GET(makeReq('mode=random&include=7&exclude=1,2,3,4,5'))
+    const body = await res.json()
+    expect(res.status).toBe(200)
+    expect(body.numbers).toContain(7)
+    expect(body.numbers.some((n: number) => [1, 2, 3, 4, 5].includes(n))).toBe(false)
+    expect(body.numbers).toHaveLength(6)
+  })
 
-it('rejects include/exclude overlap', async () => {
-  const res = await GET(makeReq('mode=random&include=7&exclude=7'))
-  expect(res.status).toBe(400)
-})
+  it('rejects an invalid mode', async () => {
+    const res = await GET(makeReq('mode=bogus'))
+    expect(res.status).toBe(400)
+  })
 
-it('rejects out-of-range numbers', async () => {
-  const res = await GET(makeReq('mode=random&include=46'))
-  expect(res.status).toBe(400)
+  it('rejects too many include numbers', async () => {
+    const res = await GET(makeReq('mode=random&include=1,2,3,4,5,6'))
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects too many exclude numbers', async () => {
+    const exclude = Array.from({ length: 39 }, (_, i) => i + 1).join(',')
+    const res = await GET(makeReq(`mode=random&exclude=${exclude}`))
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects include/exclude overlap', async () => {
+    const res = await GET(makeReq('mode=random&include=7&exclude=7'))
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects out-of-range numbers', async () => {
+    const res = await GET(makeReq('mode=random&include=46'))
+    expect(res.status).toBe(400)
+  })
 })
 ```
 
 - [ ] **Step 2: Run to verify it fails**
 
 Run: `npx jest app/api/recommend`
-Expected: FAIL — no `include` handling / validation yet (and the removed custom test is gone).
+Expected: FAIL — no `include`/`exclude` handling or validation yet.
 
-- [ ] **Step 3: Implement in `app/api/recommend/route.ts`**
+- [ ] **Step 3: Implement `app/api/recommend/route.ts`** — replace the whole file. Drops the `recommendWithExclusions` import + the exclude-bypass branch; adds parse + validation; forwards constraints. The stats/exception Supabase fetch block is unchanged from the current file:
 
-Update the import to drop `recommendWithExclusions`:
 ```ts
+import { NextRequest, NextResponse } from 'next/server'
+import { createServerClient } from '@/lib/supabase'
 import {
   recommendStats,
   recommendException,
   recommendRandom,
 } from '@/lib/recommend'
-```
+import type { GameInfo, AppearanceCount } from '@/types/lotto'
 
-Replace the top of `GET` (param parsing + the old exclusions bypass) with parsing + validation:
-
-```ts
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
   const mode = searchParams.get('mode') ?? 'stats'
@@ -302,35 +313,51 @@ export async function GET(req: NextRequest) {
   const constraints = { include, exclude }
 
   if (mode === 'random') {
-    const numbers = recommendRandom(constraints)
-    await recordRecommendation(numbers, 'random')
-    return NextResponse.json({ numbers })
+    return NextResponse.json({ numbers: recommendRandom(constraints) })
   }
 
   const supabase = createServerClient()
-  // ...existing latest-game_no fetch + get_game_info_in_range + get_appearance_count...
-```
 
-At the bottom stats/exception block, pass constraints and keep recording:
+  // Fetch latest game number to build a targeted 10-game range
+  const { data: latestRow } = await supabase
+    .from('game_info')
+    .select('game_no')
+    .order('game_no', { ascending: false })
+    .limit(1)
+    .single()
 
-```ts
+  const latestNo = latestRow?.game_no ?? 0
+
+  // Fetch last 10 games for stats-based recommendation
+  const { data: gamesRaw, error: gamesErr } = await supabase.rpc('get_game_info_in_range', {
+    p_from: Math.max(1, latestNo - 9), p_to: latestNo, p_order: 'DESC',
+  })
+  if (gamesErr) return NextResponse.json({ error: gamesErr.message }, { status: 500 })
+  const games = gamesRaw as GameInfo[]
+
+  // Fetch appearance counts sorted by win count DESC
+  const { data: countsRaw, error: countsErr } = await supabase.rpc('get_appearance_count', {
+    p_from: null, p_to: null,
+    p_sort_by: 'winCount', p_sort_order: 'DESC', p_count: null,
+  })
+  if (countsErr) return NextResponse.json({ error: countsErr.message }, { status: 500 })
+  const counts = countsRaw as AppearanceCount[]
+
   try {
     const numbers = mode === 'exception'
       ? recommendException(games, counts, constraints)
       : recommendStats(games, counts, constraints)
-    await recordRecommendation(numbers, mode, latestNo + 1)
     return NextResponse.json({ numbers })
   } catch (e: unknown) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 })
   }
+}
 ```
-
-(The old `if (excludeParam) { ... recommendWithExclusions ... }` branch is deleted entirely. `recordRecommendation` keeps its Task-3/PR-#7 signature `(numbers, mode, targetGameNo?)`.)
 
 - [ ] **Step 4: Run tests + typecheck**
 
 Run: `npx jest app/api/recommend`, then `npx jest`, then `npm run build`.
-Expected: all pass; build is now clean (the dangling `recommendWithExclusions` import from Task 1 is gone).
+Expected: all pass; build is now clean (the dangling `recommendWithExclusions` import left over from Task 1 is gone).
 
 - [ ] **Step 5: Commit**
 
