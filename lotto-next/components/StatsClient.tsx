@@ -27,58 +27,58 @@ export default function StatsClient() {
     }
   }
 
-  useEffect(() => { load() }, [sortBy, order])
+  useEffect(() => {
+    load()
+  }, [sortBy, order])
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap gap-4 items-center">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">정렬 기준</label>
-          <select
-            value={sortBy}
-            onChange={e => setSortBy(e.target.value as AppearanceSortBy)}
-            className="border rounded px-3 py-2 text-sm"
-          >
-            <option value="winCount">당첨 번호 출현</option>
-            <option value="bonusCount">보너스 번호 출현</option>
-            <option value="sumCount">전체 출현</option>
-            <option value="number">번호 순</option>
-          </select>
+      <div className="card">
+        <div className="flex flex-wrap gap-4 items-end">
+          <div>
+            <label htmlFor="sortBy" className="block text-sm font-medium text-gray-600 mb-1.5">정렬 기준</label>
+            <select id="sortBy" value={sortBy} onChange={(e) => setSortBy(e.target.value as AppearanceSortBy)} className="field">
+              <option value="winCount">당첨 번호 출현</option>
+              <option value="bonusCount">보너스 번호 출현</option>
+              <option value="sumCount">전체 출현</option>
+              <option value="number">번호 순</option>
+            </select>
+          </div>
+          <div>
+            <label htmlFor="statsOrder" className="block text-sm font-medium text-gray-600 mb-1.5">정렬 방향</label>
+            <select id="statsOrder" value={order} onChange={(e) => setOrder(e.target.value as SortOrder)} className="field">
+              <option value="DESC">내림차순</option>
+              <option value="ASC">오름차순</option>
+            </select>
+          </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">정렬 방향</label>
-          <select
-            value={order}
-            onChange={e => setOrder(e.target.value as SortOrder)}
-            className="border rounded px-3 py-2 text-sm"
-          >
-            <option value="DESC">내림차순</option>
-            <option value="ASC">오름차순</option>
-          </select>
-        </div>
+        {error && <p className="mt-4 text-red-500 text-sm">{error}</p>}
       </div>
 
-      {error && <p className="text-red-500 text-sm">{error}</p>}
-
       {loading ? (
-        <p className="text-gray-400">로딩 중...</p>
+        <p className="text-gray-400 text-center py-8">로딩 중...</p>
       ) : (
-        <div className="space-y-4">
-          <NumberGrid counts={stats} highlightTop={5} />
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm border-collapse">
+        <>
+          <div className="card">
+            <p className="font-display text-lg text-gray-900 mb-1">번호별 출현 빈도</p>
+            <p className="text-xs text-gray-400 mb-5">🟡 테두리는 출현 상위 5개 번호</p>
+            <NumberGrid counts={stats} highlightTop={5} />
+          </div>
+
+          <div className="card !p-0 overflow-hidden">
+            <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-100 text-left">
-                  <th className="p-3 border-b">번호</th>
-                  <th className="p-3 border-b text-right">당첨 출현</th>
-                  <th className="p-3 border-b text-right">보너스 출현</th>
-                  <th className="p-3 border-b text-right">합계</th>
+                <tr className="bg-emerald-50/60 text-gray-500">
+                  <th className="p-3 text-left font-medium">번호</th>
+                  <th className="p-3 text-right font-medium">당첨 출현</th>
+                  <th className="p-3 text-right font-medium">보너스 출현</th>
+                  <th className="p-3 text-right font-medium">합계</th>
                 </tr>
               </thead>
               <tbody>
-                {stats.map(s => (
-                  <tr key={s.number} className="hover:bg-gray-50 border-b">
-                    <td className="p-3 font-bold">{s.number}</td>
+                {stats.map((s) => (
+                  <tr key={s.number} className="border-t border-black/5 hover:bg-gray-50">
+                    <td className="p-3 font-display text-gray-900">{s.number}</td>
                     <td className="p-3 text-right">{String(s.win_count)}</td>
                     <td className="p-3 text-right">{String(s.bonus_count)}</td>
                     <td className="p-3 text-right">{String(s.sum_count)}</td>
@@ -87,7 +87,7 @@ export default function StatsClient() {
               </tbody>
             </table>
           </div>
-        </div>
+        </>
       )}
     </div>
   )

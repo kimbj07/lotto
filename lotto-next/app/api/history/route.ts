@@ -7,6 +7,7 @@ export async function GET(req: NextRequest) {
   const from = searchParams.get('from') ? parseInt(searchParams.get('from')!, 10) : null
   const to = searchParams.get('to') ? parseInt(searchParams.get('to')!, 10) : null
   const order = searchParams.get('order') === 'ASC' ? 'ASC' : 'DESC'
+  const count = searchParams.get('count') ? parseInt(searchParams.get('count')!, 10) : null
 
   if (from !== null && (isNaN(from) || from < 1)) {
     return NextResponse.json({ error: 'from must be a positive integer' }, { status: 400 })
@@ -16,6 +17,9 @@ export async function GET(req: NextRequest) {
   }
   if (from !== null && to !== null && from > to) {
     return NextResponse.json({ error: 'from must be <= to' }, { status: 400 })
+  }
+  if (count !== null && (isNaN(count) || count < 1)) {
+    return NextResponse.json({ error: 'count must be a positive integer' }, { status: 400 })
   }
 
   const supabase = createServerClient()
@@ -27,5 +31,10 @@ export async function GET(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ games: data as GameInfo[] })
+  let games = (data as GameInfo[]) ?? []
+  // `count` caps the result to the first N rows (in the requested order) —
+  // e.g. order=DESC&count=5 yields the 5 most recent draws.
+  if (count !== null) games = games.slice(0, count)
+
+  return NextResponse.json({ games })
 }

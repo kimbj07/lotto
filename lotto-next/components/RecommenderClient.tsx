@@ -4,6 +4,12 @@ import { useState } from 'react'
 import BallSet from './BallSet'
 import type { RecommendMode } from '@/types/lotto'
 
+const MODES: { key: RecommendMode; label: string }[] = [
+  { key: 'stats', label: '통계 기반' },
+  { key: 'exception', label: '제외 기반' },
+  { key: 'random', label: '랜덤' },
+]
+
 export default function RecommenderClient() {
   const [mode, setMode] = useState<RecommendMode>('stats')
   const [numbers, setNumbers] = useState<number[]>([])
@@ -26,36 +32,35 @@ export default function RecommenderClient() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex gap-4">
-        {(['stats', 'exception', 'random'] as RecommendMode[]).map(m => (
+    <div className="card max-w-xl mx-auto text-center">
+      <div className="inline-flex flex-wrap justify-center p-1.5 rounded-full bg-emerald-50 gap-1">
+        {MODES.map((m) => (
           <button
-            key={m}
-            onClick={() => setMode(m)}
-            className={`px-4 py-2 rounded-full text-sm font-medium border transition-colors ${
-              mode === m
-                ? 'bg-yellow-400 border-yellow-400 text-gray-900'
-                : 'border-gray-300 text-gray-600 hover:border-yellow-400'
+            key={m.key}
+            onClick={() => setMode(m.key)}
+            className={`px-5 py-2.5 rounded-full text-sm transition ${
+              mode === m.key
+                ? 'font-display bg-gradient-to-b from-brand to-brand-dark text-white shadow'
+                : 'text-gray-500 hover:bg-white'
             }`}
           >
-            {m === 'stats' ? '통계 기반' : m === 'exception' ? '제외 기반' : '랜덤'}
+            {m.label}
           </button>
         ))}
       </div>
 
-      <button
-        onClick={generate}
-        disabled={loading}
-        className="px-8 py-3 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold rounded-lg disabled:opacity-50 transition-colors"
-      >
-        {loading ? '추첨 중...' : '번호 추천받기'}
-      </button>
+      <div className="mt-7">
+        <button onClick={generate} disabled={loading} className="btn-gold">
+          {loading ? '추첨 중...' : '🎱 번호 추천받기'}
+        </button>
+      </div>
 
-      {error && <p className="text-red-500 text-sm">{error}</p>}
+      {error && <p className="mt-4 text-red-500 text-sm">{error}</p>}
 
       {numbers.length > 0 && (
-        <div className="p-6 bg-white rounded-xl shadow-sm">
-          <BallSet balls={numbers} />
+        <div className="mt-8 rounded-3xl p-6 bg-gradient-to-br from-emerald-50 to-amber-50 border border-black/5">
+          <p className="font-display text-brand-dark mb-4">✨ 당신의 행운 번호</p>
+          <BallSet balls={numbers} className="justify-center flex-wrap" />
         </div>
       )}
     </div>
