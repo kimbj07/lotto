@@ -1,6 +1,5 @@
 import {
   recommendRandom,
-  recommendWithExclusions,
   recommendStats,
   recommendException,
 } from '../recommend'
@@ -31,6 +30,19 @@ function makeCounts(): AppearanceCount[] {
   }))
 }
 
+// minimal stats fixtures
+const counts: AppearanceCount[] = Array.from({ length: 45 }, (_, i) => ({
+  number: i + 1, win_count: 45 - i, bonus_count: 0, sum_count: 45 - i,
+}))
+const games = [] as unknown as GameInfo[]
+
+function assertValid(nums: number[]) {
+  expect(nums).toHaveLength(6)
+  expect(new Set(nums).size).toBe(6)
+  nums.forEach(n => { expect(n).toBeGreaterThanOrEqual(1); expect(n).toBeLessThanOrEqual(45) })
+  expect([...nums]).toEqual([...nums].sort((a, b) => a - b))
+}
+
 describe('recommendRandom', () => {
   it('returns exactly 6 unique numbers between 1 and 45', () => {
     const result = recommendRandom()
@@ -42,24 +54,6 @@ describe('recommendRandom', () => {
     for (let i = 0; i < result.length - 1; i++) {
       expect(result[i]).toBeLessThan(result[i + 1])
     }
-  })
-})
-
-describe('recommendWithExclusions', () => {
-  it('returns 6 numbers not in exclusion list', () => {
-    const exclude = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    const result = recommendWithExclusions(exclude)
-    expect(result).toHaveLength(6)
-    result.forEach(n => expect(exclude).not.toContain(n))
-    // verify sorted ascending
-    for (let i = 0; i < result.length - 1; i++) {
-      expect(result[i]).toBeLessThan(result[i + 1])
-    }
-  })
-
-  it('throws when too many numbers excluded', () => {
-    const exclude = Array.from({ length: 40 }, (_, i) => i + 1)
-    expect(() => recommendWithExclusions(exclude)).toThrow()
   })
 })
 
@@ -101,4 +95,37 @@ describe('recommendException', () => {
       expect(result[i]).toBeLessThan(result[i + 1])
     }
   })
+})
+
+describe('constraints', () => {
+  const cases: [string, (c: any) => number[]][] = [
+    ['random', (c) => recommendRandom(c)],
+    ['stats', (c) => recommendStats(games, counts, c)],
+    ['exception', (c) => recommendException(games, counts, c)],
+  ]
+  for (const [name, gen] of cases) {
+    it(`${name}: includes always present, excludes never present`, () => {
+      for (let i = 0; i < 30; i++) {
+        const nums = gen({ include: [7, 13], exclude: [1, 2, 3, 4, 5] })
+        assertValid(nums)
+        expect(nums).toEqual(expect.arrayContaining([7, 13]))
+        expect(nums.some(n => [1, 2, 3, 4, 5].includes(n))).toBe(false)
+      }
+    })
+
+    it(`${name}: max-stress (5 includes + 38 excludes) still returns 6`, () => {
+      // include = [41..45], exclude = [1..38] — strictly disjoint, pool = {39,40,41,42,43,44,45}
+      // 5 forced + 1 free slot from 2 candidates: the true worst case
+      const include = [41, 42, 43, 44, 45]
+      const exclude = Array.from({ length: 38 }, (_, i) => i + 1)
+      const nums = gen({ include, exclude })
+      assertValid(nums)
+      expect(nums).toEqual(expect.arrayContaining(include))
+      expect(nums.some(n => exclude.includes(n))).toBe(false)
+    })
+
+    it(`${name}: no constraints returns a valid set`, () => {
+      assertValid(gen({}))
+    })
+  }
 })
