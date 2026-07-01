@@ -5,9 +5,18 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
 // Server-side client (used in Server Components and API routes)
 // Not cached — each call returns a fresh client suitable for server context.
+// The `no-store` fetch is essential: without it, Next.js's Data Cache freezes
+// read results at the first value seen after a deploy (e.g. /results would keep
+// showing the recommendation_summary snapshot captured at build time, ignoring
+// the cron's rebuilds). Reads must always reflect the live DB; routes that want
+// caching implement it explicitly (see lib/cache.ts for the history route).
 export function createServerClient() {
   return createClient(supabaseUrl, supabaseAnonKey, {
     auth: { persistSession: false },
+    global: {
+      fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+        fetch(input, { ...init, cache: 'no-store' }),
+    },
   })
 }
 
