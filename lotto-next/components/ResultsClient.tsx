@@ -69,7 +69,7 @@ function ModeBreakdown({ byMode }: { byMode: RecommendationModeSummary[] }) {
               <div className="flex items-baseline justify-between">
                 <div className="font-display text-lg text-gray-900">{label}</div>
                 {r.total === 0 ? (
-                  <span className="text-sm text-gray-400">아직 번추 없음</span>
+                  <span className="text-sm text-gray-400">아직 번호 추천 없음</span>
                 ) : rate === null ? (
                   <span className="rounded-full bg-amber-100 text-amber-700 text-xs px-2.5 py-1">
                     집계 예정
@@ -123,7 +123,7 @@ export default function ResultsClient() {
   if (!data || data.rounds.length === 0) {
     return (
       <p className="text-gray-400 text-center py-10">
-        아직 집계된 번추 결과가 없습니다 🍀
+        아직 집계된 번호 추천 결과가 없습니다 🍀
       </p>
     )
   }
@@ -134,7 +134,7 @@ export default function ResultsClient() {
         <div className="flex items-baseline justify-between mb-3">
           <h2 className="font-display text-xl text-gray-900">전체 누적</h2>
           <span className="text-sm text-gray-500">
-            {data.allTime.total.toLocaleString()} 번추
+            {data.allTime.total.toLocaleString()} 번호 추천
           </span>
         </div>
         <RankChips r={data.allTime} />
@@ -161,7 +161,7 @@ export default function ResultsClient() {
                     </span>
                   )}
                   <span className="text-sm text-gray-500">
-                    {round.total.toLocaleString()} 번추
+                    {round.total.toLocaleString()} 번호 추천
                   </span>
                 </div>
               </div>
