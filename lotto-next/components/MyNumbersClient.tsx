@@ -25,7 +25,7 @@ export default function MyNumbersClient() {
 
   async function check() {
     const nums = inputs.map(Number)
-    if (nums.some(n => isNaN(n) || n < 1 || n > 45)) {
+    if (nums.some((n) => isNaN(n) || n < 1 || n > 45)) {
       setError('1~45 사이의 숫자를 6개 모두 입력하세요')
       return
     }
@@ -51,55 +51,56 @@ export default function MyNumbersClient() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap gap-2 items-center">
-        {inputs.map((val, i) => (
-          <input
-            key={i}
-            type="number" min={1} max={45}
-            value={val}
-            onChange={e => setInput(i, e.target.value)}
-            placeholder={String(i + 1)}
-            className="border rounded px-3 py-2 w-16 text-center text-sm font-bold"
-          />
-        ))}
-        <button
-          onClick={check} disabled={loading}
-          className="px-6 py-2 bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold rounded-lg disabled:opacity-50"
-        >
-          {loading ? '확인 중...' : '이력 확인'}
-        </button>
+      <div className="card text-center">
+        <div className="flex flex-wrap gap-2.5 items-center justify-center">
+          {inputs.map((val, i) => (
+            <input
+              key={i}
+              type="number"
+              min={1}
+              max={45}
+              value={val}
+              onChange={(e) => setInput(i, e.target.value)}
+              placeholder={String(i + 1)}
+              aria-label={`번호 ${i + 1}`}
+              className="w-12 h-12 rounded-full border-2 border-gray-200 bg-white text-center text-base font-extrabold text-gray-800 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+            />
+          ))}
+        </div>
+        <div className="mt-6">
+          <button onClick={check} disabled={loading} className="btn-gold">
+            {loading ? '확인 중...' : '🔍 이력 확인'}
+          </button>
+        </div>
+        {error && <p className="mt-4 text-red-500 text-sm">{error}</p>}
       </div>
 
-      {error && <p className="text-red-500 text-sm">{error}</p>}
-
-      {results !== null && (
-        <div>
-          {results.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">3개 이상 일치한 회차가 없습니다</p>
-          ) : (
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="bg-gray-100 text-left">
-                  <th className="p-3 border-b">회차</th>
-                  <th className="p-3 border-b">일치 번호 수</th>
-                  <th className="p-3 border-b">보너스 일치</th>
-                  <th className="p-3 border-b">등수</th>
-                </tr>
-              </thead>
-              <tbody>
-                {results.map(r => (
-                  <tr key={r.game_no} className="hover:bg-gray-50 border-b">
-                    <td className="p-3 font-medium">{r.game_no}회</td>
-                    <td className="p-3">{r.win_number_count}개</td>
-                    <td className="p-3">{r.bonus_number_count > 0 ? '일치' : '-'}</td>
-                    <td className="p-3 font-bold">{r.rank ? RANK_LABEL[r.rank] : '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
+      {results !== null &&
+        (results.length === 0 ? (
+          <p className="text-gray-400 text-center py-8">3개 이상 일치한 회차가 없습니다 🍀</p>
+        ) : (
+          <div className="space-y-3">
+            {results.map((r) => (
+              <div
+                key={r.game_no}
+                className="card !p-4 sm:!p-5 flex items-center justify-between gap-4"
+              >
+                <div className="font-display text-lg text-gray-900">{r.game_no}회</div>
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="text-gray-600">
+                    일치 <b className="text-gray-900">{r.win_number_count}</b>개
+                  </span>
+                  <span className="text-gray-600">
+                    보너스 {r.bonus_number_count > 0 ? '✅' : '—'}
+                  </span>
+                  <span className="font-display text-brand-dark min-w-16 text-right">
+                    {r.rank ? RANK_LABEL[r.rank] : '—'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
     </div>
   )
 }

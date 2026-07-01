@@ -1,18 +1,29 @@
 interface LottoBallProps {
   number: number
   isBonus?: boolean
+  size?: 'md' | 'sm'
   className?: string
 }
 
-export default function LottoBall({ number, isBonus = false, className = '' }: LottoBallProps) {
+// Authentic dhlottery color scheme by number range.
+function colorClass(n: number): string {
+  if (n <= 10) return 'ball-y'
+  if (n <= 20) return 'ball-b'
+  if (n <= 30) return 'ball-r'
+  if (n <= 40) return 'ball-g'
+  return 'ball-n'
+}
+
+export default function LottoBall({
+  number,
+  isBonus = false,
+  size = 'md',
+  className = '',
+}: LottoBallProps) {
   return (
     <span
       data-bonus={isBonus ? 'true' : undefined}
-      className={`inline-flex items-center justify-center w-10 h-10 rounded-full font-bold text-sm ${
-        isBonus
-          ? 'bg-red-500 text-white'
-          : 'bg-yellow-400 text-gray-900'
-      } ${className}`}
+      className={`ball ${size === 'sm' ? 'ball-sm' : ''} ${colorClass(number)} ${className}`}
     >
       {number}
     </span>

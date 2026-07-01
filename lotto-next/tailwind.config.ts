@@ -8,9 +8,13 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        display: ["var(--font-jua)", "sans-serif"],
+        sans: ['"Noto Sans KR"', "system-ui", "sans-serif"],
+      },
       colors: {
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        brand: { DEFAULT: "#10B981", dark: "#059669", light: "#34D399" },
+        gold: { DEFAULT: "#FBBF24", dark: "#F59E0B" },
       },
     },
   },

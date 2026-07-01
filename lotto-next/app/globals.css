@@ -3,21 +3,76 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-jua: "Jua", "Noto Sans KR", sans-serif;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Noto Sans KR", system-ui, sans-serif;
+  color: #1f2937;
+  background: linear-gradient(160deg, #fffbeb 0%, #f0fdf4 55%, #ecfeff 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+@layer components {
+  /* Card surface */
+  .card {
+    @apply bg-white rounded-[1.75rem] border border-black/5 p-6 sm:p-8;
+    box-shadow: 0 20px 45px -24px rgba(16, 185, 129, 0.35);
+  }
+
+  /* Primary call-to-action button */
+  .btn-gold {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-8 py-3.5 text-lg text-gray-900 transition disabled:opacity-50 disabled:cursor-not-allowed;
+    font-family: var(--font-jua);
+    background: linear-gradient(to bottom, #fbbf24, #f59e0b);
+    box-shadow: 0 10px 22px -8px rgba(245, 158, 11, 0.7);
+  }
+  .btn-gold:hover:not(:disabled) {
+    transform: translateY(-1px) scale(1.02);
+  }
+  .btn-gold:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  /* Form field */
+  .field {
+    @apply rounded-xl border border-gray-200 bg-white px-3.5 py-2.5 text-sm outline-none transition;
+  }
+  .field:focus {
+    @apply border-brand ring-2 ring-brand/20;
+  }
+
+  /* Lotto ball — colored by number range (authentic KR scheme), 3D look */
+  .ball {
+    @apply relative inline-flex items-center justify-center rounded-full font-extrabold text-white;
+    width: 2.6rem;
+    height: 2.6rem;
+    font-size: 1rem;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15),
+      inset 0 -3px 6px rgba(0, 0, 0, 0.18), inset 0 3px 6px rgba(255, 255, 255, 0.45);
+  }
+  .ball-sm {
+    width: 2.15rem;
+    height: 2.15rem;
+    font-size: 0.82rem;
+  }
+  .ball-y {
+    background: radial-gradient(circle at 34% 30%, #ffe082, #fbc400);
+  }
+  .ball-b {
+    background: radial-gradient(circle at 34% 30%, #8fd3f4, #4fa9db);
+  }
+  .ball-r {
+    background: radial-gradient(circle at 34% 30%, #ff9e9e, #f45b5b);
+  }
+  .ball-g {
+    background: radial-gradient(circle at 34% 30%, #c8c8c8, #9a9a9a);
+  }
+  .ball-n {
+    background: radial-gradient(circle at 34% 30%, #c8e67a, #a6ce39);
+  }
 }
 
 @layer utilities {

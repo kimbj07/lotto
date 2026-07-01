@@ -1,4 +1,5 @@
 import type { AppearanceCount } from '@/types/lotto'
+import LottoBall from './LottoBall'
 
 interface NumberGridProps {
   counts: AppearanceCount[]
@@ -12,24 +13,31 @@ export default function NumberGrid({
   className = '',
 }: NumberGridProps) {
   const topNumbers = new Set(
-    [...counts].sort((a, b) => b.win_count - a.win_count).slice(0, highlightTop).map(c => c.number)
+    [...counts].sort((a, b) => b.win_count - a.win_count).slice(0, highlightTop).map((c) => c.number)
   )
   const sorted = [...counts].sort((a, b) => a.number - b.number)
 
   return (
-    <div className={`grid grid-cols-9 gap-1 ${className}`}>
-      {sorted.map((c) => (
-        <div
-          key={c.number}
-          title={`Win: ${c.win_count} | Bonus: ${c.bonus_count}`}
-          className={`flex flex-col items-center p-1 rounded text-xs ${
-            topNumbers.has(c.number) ? 'bg-yellow-200 font-bold' : 'bg-gray-100'
-          }`}
-        >
-          <span className="font-bold">{c.number}</span>
-          <span className="text-gray-500">{c.win_count}</span>
-        </div>
-      ))}
+    <div className={`grid grid-cols-9 gap-y-3 gap-x-1 justify-items-center ${className}`}>
+      {sorted.map((c) => {
+        const top = topNumbers.has(c.number)
+        return (
+          <div
+            key={c.number}
+            className="flex flex-col items-center gap-1"
+            title={`당첨 ${c.win_count} · 보너스 ${c.bonus_count}`}
+          >
+            <LottoBall
+              number={c.number}
+              size="sm"
+              className={top ? 'ring-2 ring-amber-400 ring-offset-2 ring-offset-white' : ''}
+            />
+            <span className={`text-[11px] ${top ? 'font-bold text-amber-600' : 'text-gray-400'}`}>
+              {c.win_count}
+            </span>
+          </div>
+        )
+      })}
     </div>
   )
 }
