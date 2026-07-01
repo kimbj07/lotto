@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const LINKS = [
@@ -35,14 +36,14 @@ export default function NavBar() {
   return (
     <nav className="sticky top-0 z-20 backdrop-blur bg-white/70 border-b border-black/5">
       <div className="max-w-3xl mx-auto px-4 sm:px-6 h-16 flex items-center gap-1 sm:gap-2 overflow-x-auto">
-        <a href="/" className="flex items-center gap-2 mr-1 sm:mr-3 shrink-0">
+        <Link href="/" className="flex items-center gap-2 mr-1 sm:mr-3 shrink-0">
           <CloverLogo />
           <span className="font-display text-xl text-gray-900 hidden sm:inline">행운로또</span>
-        </a>
+        </Link>
         {LINKS.map((l) => {
           const active = l.href === '/' ? pathname === '/' : pathname.startsWith(l.href)
           return (
-            <a
+            <Link
               key={l.href}
               href={l.href}
               className={`shrink-0 px-3 sm:px-3.5 py-2 rounded-full text-sm transition ${
@@ -52,7 +53,7 @@ export default function NavBar() {
               }`}
             >
               {l.label}
-            </a>
+            </Link>
           )
         })}
       </div>
