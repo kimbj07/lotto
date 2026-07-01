@@ -112,7 +112,9 @@ END;
 $$;
 
 -- Grants (mirror 004_grants.sql least-privilege pattern)
-GRANT SELECT ON public.recommendations        TO anon, authenticated;
+-- Public reads only need the aggregated summary; the raw pick table is not
+-- exposed to anon/authenticated (nothing reads it via the anon key), which keeps
+-- individual recorded number sets off the public REST surface.
 GRANT SELECT ON public.recommendation_summary TO anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.recommendations        TO service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.recommendation_summary TO service_role;

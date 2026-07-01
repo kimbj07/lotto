@@ -34,4 +34,23 @@ describe('ResultsClient', () => {
     render(<ResultsClient />)
     expect(await screen.findByText('아직 집계된 번추 결과가 없습니다 🍀')).toBeInTheDocument()
   })
+
+  it('surfaces an API error', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      json: async () => ({ error: '서버 오류' }),
+    }) as unknown as typeof fetch
+    render(<ResultsClient />)
+    expect(await screen.findByText('서버 오류')).toBeInTheDocument()
+  })
+
+  it('notes pending rounds are included in the all-time totals', async () => {
+    // all-time is not fully graded (15 of 20) → show the "집계 예정 포함" note
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => summary({ allTime: { total: 20, graded_count: 15, rank1: 1, rank2: 0, rank3: 0, rank4: 1, rank5: 6 } }),
+    }) as unknown as typeof fetch
+    render(<ResultsClient />)
+    expect(await screen.findByText('일부 회차 집계 예정 포함')).toBeInTheDocument()
+  })
 })

@@ -75,6 +75,9 @@ export default function ResultsClient() {
           </span>
         </div>
         <RankChips r={data.allTime} />
+        {data.allTime.graded_count < data.allTime.total && (
+          <p className="mt-3 text-xs text-amber-700">일부 회차 집계 예정 포함</p>
+        )}
       </div>
 
       <div className="space-y-3">
