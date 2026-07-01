@@ -49,3 +49,27 @@ export type RecommendMode = 'stats' | 'exception' | 'random'
 export type SortOrder = 'ASC' | 'DESC'
 
 export type AppearanceSortBy = 'winCount' | 'bonusCount' | 'sumCount' | 'number'
+
+export interface RecommendationRoundSummary {
+  target_game_no: number
+  total: number
+  graded_count: number
+  rank1: number
+  rank2: number
+  rank3: number
+  rank4: number
+  rank5: number
+}
+
+export interface RecommendationSummary {
+  allTime: {
+    total: number
+    graded_count: number
+    rank1: number
+    rank2: number
+    rank3: number
+    rank4: number
+    rank5: number
+  }
+  rounds: RecommendationRoundSummary[]
+}

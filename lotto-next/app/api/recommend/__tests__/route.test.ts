@@ -3,13 +3,50 @@ import { GET } from '../route'
 import { NextRequest } from 'next/server'
 import type { GameInfo, AppearanceCount } from '@/types/lotto'
 
+// Admin client mock (recordRecommendation): recommendations.insert + game_info lookup.
+const insertMock = jest.fn().mockResolvedValue({ error: null })
+const singleMock = jest.fn().mockResolvedValue({ data: { game_no: 1230 } })
+const adminFrom = jest.fn((table: string) => {
+  if (table === 'recommendations') return { insert: insertMock }
+  return { select: () => ({ order: () => ({ limit: () => ({ single: singleMock }) }) }) }
+})
+
 jest.mock('@/lib/supabase', () => ({
-  createServerClient: jest.fn(),
+  createServerClient: jest.fn(() => ({ from: jest.fn(), rpc: jest.fn() })),
+  createAdminClient: () => ({ from: adminFrom }),
 }))
 
 function makeReq(query: string): NextRequest {
   return new NextRequest(`http://localhost/api/recommend?${query}`)
 }
+
+beforeEach(() => {
+  insertMock.mockClear().mockResolvedValue({ error: null })
+  singleMock.mockClear().mockResolvedValue({ data: { game_no: 1230 } })
+  const { createServerClient } = jest.requireMock('@/lib/supabase') as { createServerClient: jest.Mock }
+  createServerClient.mockReset().mockReturnValue({ from: jest.fn(), rpc: jest.fn() })
+})
+
+describe('recording (best-effort)', () => {
+  it('records a random recommendation tagged with the next round', async () => {
+    const res = await GET(makeReq('mode=random'))
+    const body = await res.json()
+    expect(res.status).toBe(200)
+    expect(body.numbers).toHaveLength(6)
+    expect(insertMock).toHaveBeenCalledTimes(1)
+    const row = insertMock.mock.calls[0][0]
+    expect(row.target_game_no).toBe(1231) // latest 1230 + 1
+    expect(row.mode).toBe('random')
+    expect(row.numbers).toEqual(body.numbers)
+  })
+
+  it('still returns numbers when recording fails', async () => {
+    insertMock.mockResolvedValue({ error: { message: 'boom' } })
+    const res = await GET(makeReq('mode=random'))
+    expect(res.status).toBe(200)
+    expect((await res.json()).numbers).toHaveLength(6)
+  })
+})
 
 describe('GET /api/recommend include/exclude', () => {
   it('applies include/exclude constraints on the random path', async () => {
