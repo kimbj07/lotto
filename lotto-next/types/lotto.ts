@@ -61,6 +61,17 @@ export interface RecommendationRoundSummary {
   rank5: number
 }
 
+export interface RecommendationModeSummary {
+  mode: string
+  total: number
+  graded_count: number
+  rank1: number
+  rank2: number
+  rank3: number
+  rank4: number
+  rank5: number
+}
+
 export interface RecommendationSummary {
   allTime: {
     total: number
@@ -72,4 +83,5 @@ export interface RecommendationSummary {
     rank5: number
   }
   rounds: RecommendationRoundSummary[]
+  byMode: RecommendationModeSummary[]
 }

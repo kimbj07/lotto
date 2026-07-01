@@ -1,9 +1,28 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import type { RecommendationSummary, RecommendationRoundSummary } from '@/types/lotto'
+import type {
+  RecommendationSummary,
+  RecommendationRoundSummary,
+  RecommendationModeSummary,
+} from '@/types/lotto'
 
 const RANKS = [1, 2, 3, 4, 5] as const
+
+// Fixed display order + Korean labels for the per-mode breakdown.
+const MODE_LABELS: { key: string; label: string }[] = [
+  { key: 'stats', label: '통계 기반' },
+  { key: 'exception', label: '제외 기반' },
+  { key: 'random', label: '랜덤' },
+]
+
+function wins(r: { rank1: number; rank2: number; rank3: number; rank4: number; rank5: number }) {
+  return r.rank1 + r.rank2 + r.rank3 + r.rank4 + r.rank5
+}
+
+const EMPTY_MODE: Omit<RecommendationModeSummary, 'mode'> = {
+  total: 0, graded_count: 0, rank1: 0, rank2: 0, rank3: 0, rank4: 0, rank5: 0,
+}
 
 function rankCounts(r: {
   rank1: number; rank2: number; rank3: number; rank4: number; rank5: number
@@ -31,6 +50,50 @@ function RankChips({
           {rank}등 <b className="font-display">{counts[i]}</b>
         </span>
       ))}
+    </div>
+  )
+}
+
+function ModeBreakdown({ byMode }: { byMode: RecommendationModeSummary[] }) {
+  return (
+    <div>
+      <h2 className="font-display text-xl text-gray-900 mb-3">모드별 승률</h2>
+      <div className="space-y-3">
+        {MODE_LABELS.map(({ key, label }) => {
+          const r: RecommendationModeSummary =
+            byMode.find((m) => m.mode === key) ?? { mode: key, ...EMPTY_MODE }
+          const w = wins(r)
+          const rate = r.graded_count > 0 ? (w / r.graded_count) * 100 : null
+          return (
+            <div key={key} className="card !p-4 sm:!p-5 space-y-3">
+              <div className="flex items-baseline justify-between">
+                <div className="font-display text-lg text-gray-900">{label}</div>
+                {r.total === 0 ? (
+                  <span className="text-sm text-gray-400">아직 번추 없음</span>
+                ) : rate === null ? (
+                  <span className="rounded-full bg-amber-100 text-amber-700 text-xs px-2.5 py-1">
+                    집계 예정
+                  </span>
+                ) : (
+                  <span className="font-display text-2xl text-brand-dark">
+                    {rate.toFixed(1)}%
+                  </span>
+                )}
+              </div>
+              {r.total > 0 && (
+                <>
+                  {rate !== null && (
+                    <p className="text-sm text-gray-500">
+                      {w.toLocaleString()} / {r.graded_count.toLocaleString()} 당첨
+                    </p>
+                  )}
+                  <RankChips r={r} />
+                </>
+              )}
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -79,6 +142,8 @@ export default function ResultsClient() {
           <p className="mt-3 text-xs text-amber-700">일부 회차 집계 예정 포함</p>
         )}
       </div>
+
+      <ModeBreakdown byMode={data.byMode ?? []} />
 
       <div className="space-y-3">
         {data.rounds.map((round: RecommendationRoundSummary) => {

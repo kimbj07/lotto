@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
-import type { RecommendationRoundSummary, RecommendationSummary } from '@/types/lotto'
+import type {
+  RecommendationRoundSummary,
+  RecommendationModeSummary,
+  RecommendationSummary,
+} from '@/types/lotto'
 
 // This route reads a table the cron rebuilds; it must never be statically
 // cached, or /results would freeze on the snapshot captured at build time.
@@ -29,6 +33,13 @@ export async function GET() {
     { total: 0, graded_count: 0, rank1: 0, rank2: 0, rank3: 0, rank4: 0, rank5: 0 }
   )
 
-  const body: RecommendationSummary = { allTime, rounds }
+  // All-time per-mode breakdown. Degrade gracefully: if this table is missing
+  // (migration 007 not yet applied) or the query fails, still serve the rest.
+  const { data: modeData, error: modeError } = await supabase
+    .from('recommendation_mode_summary')
+    .select('*')
+  const byMode = modeError ? [] : ((modeData as RecommendationModeSummary[]) ?? [])
+
+  const body: RecommendationSummary = { allTime, rounds, byMode }
   return NextResponse.json(body)
 }

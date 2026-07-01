@@ -8,6 +8,11 @@ function summary(over: object = {}) {
       { target_game_no: 100, total: 10, graded_count: 10, rank1: 1, rank2: 0, rank3: 0, rank4: 1, rank5: 3 },
       { target_game_no: 101, total: 10, graded_count: 5, rank1: 0, rank2: 0, rank3: 0, rank4: 0, rank5: 3 },
     ],
+    byMode: [
+      { mode: 'stats', total: 10, graded_count: 10, rank1: 0, rank2: 0, rank3: 0, rank4: 0, rank5: 1 }, // 10.0%
+      { mode: 'exception', total: 8, graded_count: 8, rank1: 0, rank2: 0, rank3: 0, rank4: 0, rank5: 0 }, // 0.0%
+      { mode: 'random', total: 0, graded_count: 0, rank1: 0, rank2: 0, rank3: 0, rank4: 0, rank5: 0 }, // 아직 번추 없음
+    ],
     ...over,
   }
 }
@@ -52,5 +57,26 @@ describe('ResultsClient', () => {
     }) as unknown as typeof fetch
     render(<ResultsClient />)
     expect(await screen.findByText('일부 회차 집계 예정 포함')).toBeInTheDocument()
+  })
+
+  it('renders the per-mode win-rate breakdown', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => summary() }) as unknown as typeof fetch
+    render(<ResultsClient />)
+    expect(await screen.findByText('모드별 승률')).toBeInTheDocument()
+    expect(screen.getByText('통계 기반')).toBeInTheDocument()
+    expect(screen.getByText('10.0%')).toBeInTheDocument() // stats: 1 win / 10 graded
+    expect(screen.getByText('0.0%')).toBeInTheDocument()  // exception: 0 / 8 graded
+    expect(screen.getByText('아직 번추 없음')).toBeInTheDocument() // random: 0 picks
+  })
+
+  it('shows 집계 예정 for a mode with picks but none graded yet', async () => {
+    const data = summary({
+      rounds: [{ target_game_no: 100, total: 10, graded_count: 10, rank1: 0, rank2: 0, rank3: 0, rank4: 0, rank5: 1 }],
+      byMode: [{ mode: 'stats', total: 5, graded_count: 0, rank1: 0, rank2: 0, rank3: 0, rank4: 0, rank5: 0 }],
+    })
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => data }) as unknown as typeof fetch
+    render(<ResultsClient />)
+    // the round is fully graded, so the only 집계 예정 badge comes from the stats mode
+    expect(await screen.findByText('집계 예정')).toBeInTheDocument()
   })
 })
