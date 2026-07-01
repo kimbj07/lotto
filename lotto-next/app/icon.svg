@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="48" y2="48">
+      <stop offset="0" stop-color="#34D399"/>
+      <stop offset="1" stop-color="#059669"/>
+    </linearGradient>
+  </defs>
+  <rect width="48" height="48" rx="11" fill="url(#g)"/>
+  <path d="M24 24 C24 31 23 35 21 40" fill="none" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round"/>
+  <g fill="#ffffff">
+    <path d="M0 0 C0 0 -9 -7 -9 -13 C-9 -16 -7 -18 -4 -18 C-2 -18 0 -16 0 -15 C0 -16 2 -18 4 -18 C7 -18 9 -16 9 -13 C9 -7 0 0 0 0 Z" transform="translate(24 22) rotate(45) scale(0.6)"/>
+    <path d="M0 0 C0 0 -9 -7 -9 -13 C-9 -16 -7 -18 -4 -18 C-2 -18 0 -16 0 -15 C0 -16 2 -18 4 -18 C7 -18 9 -16 9 -13 C9 -7 0 0 0 0 Z" transform="translate(24 22) rotate(135) scale(0.6)"/>
+    <path d="M0 0 C0 0 -9 -7 -9 -13 C-9 -16 -7 -18 -4 -18 C-2 -18 0 -16 0 -15 C0 -16 2 -18 4 -18 C7 -18 9 -16 9 -13 C9 -7 0 0 0 0 Z" transform="translate(24 22) rotate(225) scale(0.6)"/>
+    <path d="M0 0 C0 0 -9 -7 -9 -13 C-9 -16 -7 -18 -4 -18 C-2 -18 0 -16 0 -15 C0 -16 2 -18 4 -18 C7 -18 9 -16 9 -13 C9 -7 0 0 0 0 Z" transform="translate(24 22) rotate(315) scale(0.6)"/>
+  </g>
+</svg>
