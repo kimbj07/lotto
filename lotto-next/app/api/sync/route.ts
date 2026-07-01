@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { fetchLatestGameNo, fetchGameInfo } from '@/lib/lotto-api'
+import { clearCache } from '@/lib/cache'
 
 // Called by Vercel Cron (see vercel.json) and manually via POST /api/sync.
 // Protected by CRON_SECRET when called from outside Vercel infra.
@@ -102,6 +103,11 @@ async function syncHandler(req: NextRequest): Promise<NextResponse> {
     // Brief pause to avoid hammering the official API
     await new Promise(r => setTimeout(r, 300))
   }
+
+  // New draws landed — evict the history "latest N" cache so the next request
+  // reflects them. Best-effort: on serverless this only clears the instance that
+  // served this cron request; other warm instances self-heal within the TTL.
+  if (synced > 0) clearCache()
 
   return NextResponse.json({ synced, skipped, latestGameNo, lastSavedGameNo })
 }
