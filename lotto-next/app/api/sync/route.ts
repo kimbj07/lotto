@@ -100,6 +100,9 @@ async function syncHandler(req: NextRequest): Promise<NextResponse> {
 
     synced++
 
+    // Grade any recommendations that targeted this now-drawn round.
+    await supabase.rpc('grade_recommendations', { p_game_no: gameInfo.game_no })
+
     // Brief pause to avoid hammering the official API
     await new Promise(r => setTimeout(r, 300))
   }
@@ -107,7 +110,11 @@ async function syncHandler(req: NextRequest): Promise<NextResponse> {
   // New draws landed — evict the history "latest N" cache so the next request
   // reflects them. Best-effort: on serverless this only clears the instance that
   // served this cron request; other warm instances self-heal within the TTL.
-  if (synced > 0) clearCache()
+  if (synced > 0) {
+    clearCache()
+    // Rebuild the materialized recommendation summary from the freshly graded rows.
+    await supabase.rpc('refresh_recommendation_summary')
+  }
 
   return NextResponse.json({ synced, skipped, latestGameNo, lastSavedGameNo })
 }

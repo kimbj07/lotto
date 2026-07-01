@@ -10,6 +10,7 @@ import { fetchLatestGameNo, fetchGameInfo } from '@/lib/lotto-api'
 jest.mock('@/lib/cache')
 
 const insertMock = jest.fn().mockResolvedValue({ error: null })
+const rpcMock = jest.fn().mockResolvedValue({ error: null })
 const singleMock = jest.fn()
 jest.mock('@/lib/supabase', () => ({
   createAdminClient: () => ({
@@ -18,6 +19,7 @@ jest.mock('@/lib/supabase', () => ({
       insert: insertMock,
       delete: () => ({ eq: () => Promise.resolve({ error: null }) }),
     }),
+    rpc: rpcMock,
   }),
 }))
 
@@ -47,6 +49,7 @@ beforeEach(() => {
   process.env.CRON_SECRET = 'test-secret'
   ;(clearCache as jest.Mock).mockClear()
   insertMock.mockClear()
+  rpcMock.mockClear()
   singleMock.mockReset()
   fetchLatest.mockReset()
   fetchGame.mockReset()
@@ -75,4 +78,25 @@ it('does not evict when there is nothing new to sync', async () => {
   const res = await GET(authedReq())
   expect((await res.json()).synced).toBe(0)
   expect(clearCache).not.toHaveBeenCalled()
+})
+
+it('grades each synced round and rebuilds the summary once', async () => {
+  singleMock.mockResolvedValue({ data: { game_no: 1230 } })
+  fetchLatest.mockResolvedValue(1231)
+  fetchGame.mockResolvedValue(fullGame(1231))
+
+  await GET(authedReq())
+
+  expect(rpcMock).toHaveBeenCalledWith('grade_recommendations', { p_game_no: 1231 })
+  expect(rpcMock).toHaveBeenCalledWith('refresh_recommendation_summary')
+  expect(rpcMock.mock.calls.filter(c => c[0] === 'refresh_recommendation_summary')).toHaveLength(1)
+})
+
+it('does not grade or refresh when nothing is synced', async () => {
+  singleMock.mockResolvedValue({ data: { game_no: 1231 } })
+  fetchLatest.mockResolvedValue(1231)
+
+  await GET(authedReq())
+
+  expect(rpcMock).not.toHaveBeenCalled()
 })
