@@ -4,31 +4,40 @@ import {
   recommendStats,
   recommendException,
   recommendRandom,
-  recommendWithExclusions,
 } from '@/lib/recommend'
 import type { GameInfo, AppearanceCount } from '@/types/lotto'
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
   const mode = searchParams.get('mode') ?? 'stats'
-  const excludeParam = searchParams.get('exclude')
 
   if (!['stats', 'exception', 'random'].includes(mode)) {
     return NextResponse.json({ error: 'mode must be stats, exception, or random' }, { status: 400 })
   }
 
-  // User-supplied exclusions (comma-separated)
-  if (excludeParam) {
-    const exclude = excludeParam.split(',').map(Number).filter(n => n >= 1 && n <= 45)
-    try {
-      return NextResponse.json({ numbers: recommendWithExclusions(exclude) })
-    } catch (e: unknown) {
-      return NextResponse.json({ error: (e as Error).message }, { status: 400 })
-    }
+  const parseNums = (p: string | null): number[] =>
+    p ? p.split(',').map(s => parseInt(s, 10)) : []
+  const include = parseNums(searchParams.get('include'))
+  const exclude = parseNums(searchParams.get('exclude'))
+
+  const badSet = (nums: number[], max: number, name: string): string | null => {
+    if (nums.some(n => isNaN(n) || n < 1 || n > 45)) return `${name} numbers must be between 1 and 45`
+    if (new Set(nums).size !== nums.length) return `${name} numbers must be unique`
+    if (nums.length > max) return `at most ${max} ${name} numbers allowed`
+    return null
+  }
+  const incErr = badSet(include, 5, 'include')
+  if (incErr) return NextResponse.json({ error: incErr }, { status: 400 })
+  const excErr = badSet(exclude, 38, 'exclude')
+  if (excErr) return NextResponse.json({ error: excErr }, { status: 400 })
+  if (include.some(n => exclude.includes(n))) {
+    return NextResponse.json({ error: 'include and exclude must be disjoint' }, { status: 400 })
   }
 
+  const constraints = { include, exclude }
+
   if (mode === 'random') {
-    return NextResponse.json({ numbers: recommendRandom() })
+    return NextResponse.json({ numbers: recommendRandom(constraints) })
   }
 
   const supabase = createServerClient()
@@ -60,8 +69,8 @@ export async function GET(req: NextRequest) {
 
   try {
     const numbers = mode === 'exception'
-      ? recommendException(games, counts)
-      : recommendStats(games, counts)
+      ? recommendException(games, counts, constraints)
+      : recommendStats(games, counts, constraints)
     return NextResponse.json({ numbers })
   } catch (e: unknown) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 })
