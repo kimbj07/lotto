@@ -4,6 +4,7 @@
 // next/server (NextRequest/NextResponse) needs the web Request/Response
 // globals, which exist in Node but not in jsdom — run this suite under node.
 import { GET } from '../route'
+import { clearCache } from '@/lib/cache'
 
 // Mock the supabase layer so the route runs without a real DB.
 const rpcMock = jest.fn()
@@ -33,6 +34,10 @@ beforeEach(() => {
   rpcMock.mockReset()
   singleMock.mockReset()
   fromMock.mockClear()
+  // The cache Map is module-level and persists across tests — reset it so the
+  // default-latest cases (which share keys like history:latest:DESC:5) don't
+  // bleed cached results into one another.
+  clearCache()
 })
 
 describe('GET /api/history — count validation', () => {
@@ -118,5 +123,71 @@ describe('GET /api/history — explicit range is untouched', () => {
       p_order: 'ASC',
     })
     expect((await res.json()).games).toHaveLength(3)
+  })
+})
+
+describe('GET /api/history — caching the default "latest N" load', () => {
+  it('serves a repeat default call from cache without a second DB round-trip', async () => {
+    singleMock.mockResolvedValue({ data: { game_no: 1230 } })
+    rpcMock.mockResolvedValue({ data: [game(1230), game(1229), game(1228), game(1227), game(1226)], error: null })
+
+    const first = await (await GET(makeReq('order=DESC&count=5'))).json()
+    const second = await (await GET(makeReq('order=DESC&count=5'))).json()
+
+    expect(rpcMock).toHaveBeenCalledTimes(1) // second call hit the cache
+    expect(fromMock).toHaveBeenCalledTimes(1) // and skipped the latest-game_no lookup too
+    expect(second).toEqual(first)
+    expect(second.games).toHaveLength(5)
+  })
+
+  it('re-fetches after clearCache() evicts the entry', async () => {
+    singleMock.mockResolvedValue({ data: { game_no: 1230 } })
+    rpcMock.mockResolvedValue({ data: [game(1230), game(1229), game(1228), game(1227), game(1226)], error: null })
+
+    await GET(makeReq('order=DESC&count=5'))
+    clearCache() // simulates the cron sync evicting the cache
+    await GET(makeReq('order=DESC&count=5'))
+
+    expect(rpcMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('never caches explicit-range queries', async () => {
+    rpcMock.mockResolvedValue({ data: [game(10), game(11), game(12)], error: null })
+
+    await GET(makeReq('from=10&to=12&order=ASC'))
+    await GET(makeReq('from=10&to=12&order=ASC'))
+
+    expect(rpcMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not cache an error result', async () => {
+    singleMock.mockResolvedValue({ data: { game_no: 1230 } })
+    rpcMock.mockResolvedValue({ data: null, error: { message: 'boom' } })
+
+    const res = await GET(makeReq('order=DESC&count=5'))
+    expect(res.status).toBe(500)
+
+    await GET(makeReq('order=DESC&count=5'))
+    expect(rpcMock).toHaveBeenCalledTimes(2) // retried, not served from cache
+  })
+
+  it('does not cache an empty result (table-cold)', async () => {
+    singleMock.mockResolvedValue({ data: { game_no: 1230 } })
+    rpcMock.mockResolvedValue({ data: [], error: null })
+
+    await GET(makeReq('order=DESC&count=5'))
+    await GET(makeReq('order=DESC&count=5'))
+
+    expect(rpcMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('bypasses the cache for counts above the cacheable bound', async () => {
+    singleMock.mockResolvedValue({ data: { game_no: 1230 } })
+    rpcMock.mockResolvedValue({ data: [game(1230)], error: null })
+
+    await GET(makeReq('order=DESC&count=100000'))
+    await GET(makeReq('order=DESC&count=100000'))
+
+    expect(rpcMock).toHaveBeenCalledTimes(2)
   })
 })

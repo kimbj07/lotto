@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
+import { getCached, setCached } from '@/lib/cache'
 import type { GameInfo } from '@/types/lotto'
+
+// Only bounded counts are cached, so a user-controlled `?count=999999` can never
+// grow the cache Map unboundedly; larger counts fall through to a normal fetch.
+const CACHEABLE_MAX_COUNT = 50
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
@@ -23,6 +28,18 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = createServerClient()
+
+  // The default "latest N" load (a bounded count with no explicit range) returns
+  // data that does not change until the next weekly draw, so cache it locally.
+  // A hit skips both the latest-game_no lookup and the expensive RPC below.
+  const cacheKey =
+    count !== null && from === null && to === null && count <= CACHEABLE_MAX_COUNT
+      ? `history:latest:${order}:${count}`
+      : null
+  if (cacheKey) {
+    const cached = getCached<GameInfo[]>(cacheKey)
+    if (cached) return NextResponse.json({ games: cached })
+  }
 
   // When a bounded `count` is requested without an explicit range (the default
   // "latest N" history load), derive a narrow game_no window so the RPC
@@ -63,6 +80,10 @@ export async function GET(req: NextRequest) {
   // e.g. order=DESC&count=5 yields the 5 most recent draws. Kept as a safety
   // net in case the derived window covers more rows than requested (game_no gaps).
   if (count !== null) games = games.slice(0, count)
+
+  // Cache only non-empty default-latest results. Errors already returned above;
+  // an empty (table-cold) [] is never cached so freshly-seeded data isn't hidden.
+  if (cacheKey && games.length > 0) setCached(cacheKey, games)
 
   return NextResponse.json({ games })
 }
