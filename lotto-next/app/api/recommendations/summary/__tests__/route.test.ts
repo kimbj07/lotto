@@ -2,6 +2,7 @@
  * @jest-environment node
  */
 import { GET } from '../route'
+import { clearCache } from '@/lib/cache'
 
 const summaryOrderMock = jest.fn()
 const modeSelectMock = jest.fn()
@@ -22,6 +23,7 @@ function modeRow(mode: string, over: Partial<Record<string, number>> = {}) {
 }
 
 beforeEach(() => {
+  clearCache() // the route caches its response; reset between tests
   summaryOrderMock.mockReset()
   modeSelectMock.mockReset().mockResolvedValue({ data: [], error: null })
 })
@@ -63,4 +65,12 @@ it('degrades to an empty byMode when the mode-summary query errors', async () =>
   expect(res.status).toBe(200) // still serves the rest
   expect(body.rounds).toHaveLength(1)
   expect(body.byMode).toEqual([])
+})
+
+it('caches the response so a second call skips the DB', async () => {
+  summaryOrderMock.mockResolvedValue({ data: [row(100)], error: null })
+  const first = await (await GET()).json()
+  const second = await (await GET()).json()
+  expect(second).toEqual(first)
+  expect(summaryOrderMock).toHaveBeenCalledTimes(1) // second call served from cache
 })

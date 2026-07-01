@@ -11,7 +11,7 @@ function summary(over: object = {}) {
     byMode: [
       { mode: 'stats', total: 10, graded_count: 10, rank1: 0, rank2: 0, rank3: 0, rank4: 0, rank5: 1 }, // 10.0%
       { mode: 'exception', total: 8, graded_count: 8, rank1: 0, rank2: 0, rank3: 0, rank4: 0, rank5: 0 }, // 0.0%
-      { mode: 'random', total: 0, graded_count: 0, rank1: 0, rank2: 0, rank3: 0, rank4: 0, rank5: 0 }, // 아직 번추 없음
+      { mode: 'random', total: 0, graded_count: 0, rank1: 0, rank2: 0, rank3: 0, rank4: 0, rank5: 0 }, // 아직 번호 추천 없음
     ],
     ...over,
   }
@@ -37,7 +37,7 @@ describe('ResultsClient', () => {
       json: async () => ({ allTime: { total: 0, graded_count: 0, rank1: 0, rank2: 0, rank3: 0, rank4: 0, rank5: 0 }, rounds: [] }),
     }) as unknown as typeof fetch
     render(<ResultsClient />)
-    expect(await screen.findByText('아직 집계된 번추 결과가 없습니다 🍀')).toBeInTheDocument()
+    expect(await screen.findByText('아직 집계된 번호 추천 결과가 없습니다 🍀')).toBeInTheDocument()
   })
 
   it('surfaces an API error', async () => {
@@ -66,7 +66,7 @@ describe('ResultsClient', () => {
     expect(screen.getByText('통계 기반')).toBeInTheDocument()
     expect(screen.getByText('10.0%')).toBeInTheDocument() // stats: 1 win / 10 graded
     expect(screen.getByText('0.0%')).toBeInTheDocument()  // exception: 0 / 8 graded
-    expect(screen.getByText('아직 번추 없음')).toBeInTheDocument() // random: 0 picks
+    expect(screen.getByText('아직 번호 추천 없음')).toBeInTheDocument() // random: 0 picks
   })
 
   it('shows 집계 예정 for a mode with picks but none graded yet', async () => {

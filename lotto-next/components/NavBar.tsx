@@ -8,7 +8,7 @@ const LINKS = [
   { href: '/history', label: '당첨 이력' },
   { href: '/my-numbers', label: '내 번호 확인' },
   { href: '/stats', label: '번호 통계' },
-  { href: '/results', label: '번추 결과' },
+  { href: '/results', label: '번호 추천 결과' },
 ]
 
 function CloverLogo() {
