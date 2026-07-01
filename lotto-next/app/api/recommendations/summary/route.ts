@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import type { RecommendationRoundSummary, RecommendationSummary } from '@/types/lotto'
 
+// This route reads a table the cron rebuilds; it must never be statically
+// cached, or /results would freeze on the snapshot captured at build time.
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   const supabase = createServerClient()
   const { data, error } = await supabase
