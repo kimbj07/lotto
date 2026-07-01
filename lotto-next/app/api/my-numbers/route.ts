@@ -1,18 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
+import { computeRank } from '@/lib/rank'
 import type { MyRankInGame } from '@/types/lotto'
-
-function computeRank(
-  winCount: number,
-  bonusCount: number
-): MyRankInGame['rank'] {
-  if (winCount === 6) return 1
-  if (winCount === 5 && bonusCount === 1) return 2
-  if (winCount === 5) return 3
-  if (winCount === 4) return 4
-  if (winCount === 3) return 5
-  return null
-}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
