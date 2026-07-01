@@ -21,108 +21,87 @@ function pickRandom<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]
 }
 
-export function recommendRandom(): number[] {
-  return shuffle(ALL_NUMBERS).slice(0, 6).sort((a, b) => a - b)
+export interface RecommendConstraints { include?: number[]; exclude?: number[] }
+
+function fillRandom(selected: number[], pool: number[]): void {
+  const need = 6 - selected.length
+  if (need > 0) selected.push(...shuffle(pool).slice(0, need))
 }
 
-export function recommendWithExclusions(exclude: number[]): number[] {
-  const candidates = ALL_NUMBERS.filter(n => !exclude.includes(n))
-  if (candidates.length < 6) {
-    throw new Error('Too many numbers excluded — fewer than 6 candidates remain')
+// Guarantee exactly 6: if the mode's soft-exclusions left us short, fall back to
+// any allowed number (not excluded, not already selected).
+function finalize(selected: number[], exclude: number[]): number[] {
+  if (selected.length < 6) {
+    const allowed = ALL_NUMBERS.filter(n => !exclude.includes(n) && !selected.includes(n))
+    fillRandom(selected, allowed)
   }
-  return shuffle(candidates).slice(0, 6).sort((a, b) => a - b)
+  if (selected.length !== 6) throw new Error('Failed to select 6 numbers')
+  return selected.slice(0, 6).sort((a, b) => a - b)
 }
 
-export function recommendStats(games: GameInfo[], counts: AppearanceCount[]): number[] {
-  // counts must be sorted DESC by win_count (most frequent first)
-  const available = new Set(ALL_NUMBERS)
+export function recommendRandom(c: RecommendConstraints = {}): number[] {
+  const include = c.include ?? []
+  const exclude = c.exclude ?? []
+  const selected = [...include]
+  const pool = ALL_NUMBERS.filter(n => !exclude.includes(n) && !include.includes(n))
+  fillRandom(selected, pool)
+  return finalize(selected, exclude)
+}
 
-  // Exclude top MAX_APPEARANCE_LIMIT most frequent numbers
-  counts.slice(0, MAX_APPEARANCE_LIMIT).forEach(c => available.delete(c.number))
+export function recommendStats(
+  games: GameInfo[], counts: AppearanceCount[], c: RecommendConstraints = {}
+): number[] {
+  const include = c.include ?? []
+  const exclude = c.exclude ?? []
+  const available = new Set(ALL_NUMBERS.filter(n => !exclude.includes(n)))
+  const selected: number[] = []
+  for (const n of include) { selected.push(n); available.delete(n) }
 
-  // Exclude last LATEST_BONUS_LIMIT bonus balls
+  counts.slice(0, MAX_APPEARANCE_LIMIT).forEach(cc => available.delete(cc.number))
   games.slice(0, LATEST_BONUS_LIMIT).forEach(g => available.delete(g.bonus_ball))
 
-  const selected: number[] = []
-
-  // Pick 1 from the bottom LOWEST_PICK_POOL least-frequent numbers
-  const bottom = counts.slice(-LOWEST_PICK_POOL).map(c => c.number).filter(n => available.has(n))
-  if (bottom.length > 0) {
-    const pick = pickRandom(bottom)
-    selected.push(pick)
-    available.delete(pick)
+  if (selected.length < 6) {
+    const bottom = counts.slice(-LOWEST_PICK_POOL).map(cc => cc.number).filter(n => available.has(n))
+    if (bottom.length > 0) { const pick = pickRandom(bottom); selected.push(pick); available.delete(pick) }
   }
-
-  // Pick 1 from around rank MID_PICK_INDEX (0-based index 8)
-  const midIndex = Math.min(MID_PICK_INDEX - 1, counts.length - 1)
-  const midCandidate = counts[midIndex]
-  if (midCandidate && available.has(midCandidate.number)) {
-    selected.push(midCandidate.number)
-    available.delete(midCandidate.number)
+  if (selected.length < 6) {
+    const midIndex = Math.min(MID_PICK_INDEX - 1, counts.length - 1)
+    const midCandidate = counts[midIndex]
+    if (midCandidate && available.has(midCandidate.number)) { selected.push(midCandidate.number); available.delete(midCandidate.number) }
   }
-
-  // Fill remaining slots randomly
-  const remaining = Array.from(available)
-  const needed = 6 - selected.length
-  const extras = shuffle(remaining).slice(0, needed)
-  selected.push(...extras)
-
-  if (selected.length !== 6) {
-    throw new Error('Failed to select 6 numbers')
-  }
-
-  return selected.sort((a, b) => a - b)
+  fillRandom(selected, Array.from(available))
+  return finalize(selected, exclude)
 }
 
-export function recommendException(games: GameInfo[], counts: AppearanceCount[]): number[] {
-  const available = new Set(ALL_NUMBERS)
+export function recommendException(
+  games: GameInfo[], counts: AppearanceCount[], c: RecommendConstraints = {}
+): number[] {
+  const include = c.include ?? []
+  const exclude = c.exclude ?? []
+  const available = new Set(ALL_NUMBERS.filter(n => !exclude.includes(n)))
+  const selected: number[] = []
+  for (const n of include) { selected.push(n); available.delete(n) }
 
-  // Exclude top MAX_APPEARANCE_LIMIT most frequent numbers
-  counts.slice(0, MAX_APPEARANCE_LIMIT).forEach(c => available.delete(c.number))
-
-  // Exclude last LATEST_BONUS_LIMIT bonus balls
+  counts.slice(0, MAX_APPEARANCE_LIMIT).forEach(cc => available.delete(cc.number))
   games.slice(0, LATEST_BONUS_LIMIT).forEach(g => available.delete(g.bonus_ball))
 
-  const selected: number[] = []
-
-  // Pick 1 from the bottom LOWEST_PICK_POOL
-  const bottom = counts.slice(-LOWEST_PICK_POOL).map(c => c.number).filter(n => available.has(n))
-  if (bottom.length > 0) {
-    const pick = pickRandom(bottom)
-    selected.push(pick)
-    available.delete(pick)
+  if (selected.length < 6) {
+    const bottom = counts.slice(-LOWEST_PICK_POOL).map(cc => cc.number).filter(n => available.has(n))
+    if (bottom.length > 0) { const pick = pickRandom(bottom); selected.push(pick); available.delete(pick) }
   }
-
-  // Pick 1 from rank MID_PICK_INDEX
-  const midIndex = Math.min(MID_PICK_INDEX - 1, counts.length - 1)
-  const midCandidate = counts[midIndex]
-  if (midCandidate && available.has(midCandidate.number)) {
-    selected.push(midCandidate.number)
-    available.delete(midCandidate.number)
+  if (selected.length < 6) {
+    const midIndex = Math.min(MID_PICK_INDEX - 1, counts.length - 1)
+    const midCandidate = counts[midIndex]
+    if (midCandidate && available.has(midCandidate.number)) { selected.push(midCandidate.number); available.delete(midCandidate.number) }
   }
-
-  // Pick 1 from the game N_WEEKS_AGO draws ago
-  if (games.length >= N_WEEKS_AGO) {
+  if (selected.length < 6 && games.length >= N_WEEKS_AGO) {
     const nWeeksGame = games[N_WEEKS_AGO - 1]
     const nWeeksNumbers = [
       nWeeksGame.first_ball, nWeeksGame.second_ball, nWeeksGame.third_ball,
       nWeeksGame.fourth_ball, nWeeksGame.fifth_ball, nWeeksGame.sixth_ball,
     ].filter(n => available.has(n))
-    if (nWeeksNumbers.length > 0) {
-      const pick = pickRandom(nWeeksNumbers)
-      selected.push(pick)
-      available.delete(pick)
-    }
+    if (nWeeksNumbers.length > 0) { const pick = pickRandom(nWeeksNumbers); selected.push(pick); available.delete(pick) }
   }
-
-  // Fill remaining slots randomly
-  const remaining = shuffle(Array.from(available))
-  const needed = 6 - selected.length
-  selected.push(...remaining.slice(0, needed))
-
-  if (selected.length !== 6) {
-    throw new Error('Failed to select 6 numbers')
-  }
-
-  return selected.sort((a, b) => a - b)
+  fillRandom(selected, Array.from(available))
+  return finalize(selected, exclude)
 }
