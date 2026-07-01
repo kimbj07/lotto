@@ -1,33 +1,46 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import BallSet from './BallSet'
 import type { GameInfo } from '@/types/lotto'
+
+const LATEST_COUNT = 5
 
 export default function HistoryClient() {
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
   const [order, setOrder] = useState<'ASC' | 'DESC'>('DESC')
   const [games, setGames] = useState<GameInfo[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showingLatest, setShowingLatest] = useState(true)
 
-  async function search() {
+  async function fetchGames(params: URLSearchParams, latest: boolean) {
     setLoading(true)
     setError(null)
-    const params = new URLSearchParams({ order })
-    if (from) params.set('from', from)
-    if (to) params.set('to', to)
     try {
       const res = await fetch(`/api/history?${params}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setGames(data.games)
+      setShowingLatest(latest)
     } catch (e: unknown) {
       setError((e as Error).message)
     } finally {
       setLoading(false)
     }
+  }
+
+  // Show the most recent draws by default when the page opens.
+  useEffect(() => {
+    fetchGames(new URLSearchParams({ order: 'DESC', count: String(LATEST_COUNT) }), true)
+  }, [])
+
+  async function search() {
+    const params = new URLSearchParams({ order })
+    if (from) params.set('from', from)
+    if (to) params.set('to', to)
+    await fetchGames(params, false)
   }
 
   return (
@@ -58,6 +71,9 @@ export default function HistoryClient() {
 
       {games.length > 0 && (
         <div className="space-y-3">
+          {showingLatest && (
+            <p className="font-display text-lg text-gray-900 px-1">🎉 최신 당첨 번호</p>
+          )}
           {games.map((g) => (
             <div
               key={g.game_no}
@@ -86,7 +102,7 @@ export default function HistoryClient() {
       )}
 
       {games.length === 0 && !loading && !error && (
-        <p className="text-gray-400 text-center py-8">회차 범위를 입력하고 조회하세요 🔍</p>
+        <p className="text-gray-400 text-center py-8">해당 범위의 당첨 이력이 없습니다 🔍</p>
       )}
     </div>
   )
