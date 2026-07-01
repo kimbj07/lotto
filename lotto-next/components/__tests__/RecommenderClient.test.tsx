@@ -26,4 +26,19 @@ describe('RecommenderClient', () => {
     const url = fetchMock.mock.calls[0][0] as string
     expect(url).toContain('include=7')
   })
+
+  it('sends exclude param when a number is excluded', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ numbers: [4, 5, 6, 7, 8, 9] }) })
+    global.fetch = fetchMock as unknown as typeof fetch
+    render(<RecommenderClient />)
+
+    // pick exclude 13 from the exclude grid
+    const excludeSection = screen.getByTestId('exclude-grid')
+    fireEvent.click(within(excludeSection).getByRole('button', { name: '13' }))
+
+    fireEvent.click(screen.getByRole('button', { name: /번호 추천받기/ }))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    const url = fetchMock.mock.calls[0][0] as string
+    expect(url).toContain('exclude=13')
+  })
 })

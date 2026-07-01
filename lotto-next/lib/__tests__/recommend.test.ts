@@ -114,8 +114,10 @@ describe('constraints', () => {
     })
 
     it(`${name}: max-stress (5 includes + 38 excludes) still returns 6`, () => {
-      const include = [10, 11, 12, 13, 14]
-      const exclude = Array.from({ length: 38 }, (_, i) => i + 1).filter(n => !include.includes(n)).slice(0, 38)
+      // include = [41..45], exclude = [1..38] — strictly disjoint, pool = {39,40,41,42,43,44,45}
+      // 5 forced + 1 free slot from 2 candidates: the true worst case
+      const include = [41, 42, 43, 44, 45]
+      const exclude = Array.from({ length: 38 }, (_, i) => i + 1)
       const nums = gen({ include, exclude })
       assertValid(nums)
       expect(nums).toEqual(expect.arrayContaining(include))
