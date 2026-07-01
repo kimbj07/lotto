@@ -23,9 +23,36 @@ export async function GET(req: NextRequest) {
   }
 
   const supabase = createServerClient()
+
+  // When a bounded `count` is requested without an explicit range (the default
+  // "latest N" history load), derive a narrow game_no window so the RPC
+  // aggregates only the rows we need. Without this, get_game_info_in_range runs
+  // its full multi-join GROUP BY over the entire (ever-growing) draw table and
+  // serializes every row back just to slice off N — on every page open.
+  let effectiveFrom = from
+  let effectiveTo = to
+  if (count !== null && from === null && to === null) {
+    const { data: latestRow } = await supabase
+      .from('game_info')
+      .select('game_no')
+      .order('game_no', { ascending: false })
+      .limit(1)
+      .single()
+    const latestNo = (latestRow?.game_no as number | undefined) ?? 0
+    if (latestNo > 0) {
+      if (order === 'DESC') {
+        effectiveFrom = Math.max(1, latestNo - count + 1)
+        effectiveTo = latestNo
+      } else {
+        effectiveFrom = 1
+        effectiveTo = count
+      }
+    }
+  }
+
   const { data, error } = await supabase.rpc('get_game_info_in_range', {
-    p_from: from,
-    p_to: to,
+    p_from: effectiveFrom,
+    p_to: effectiveTo,
     p_order: order,
   })
 
@@ -33,7 +60,8 @@ export async function GET(req: NextRequest) {
 
   let games = (data as GameInfo[]) ?? []
   // `count` caps the result to the first N rows (in the requested order) —
-  // e.g. order=DESC&count=5 yields the 5 most recent draws.
+  // e.g. order=DESC&count=5 yields the 5 most recent draws. Kept as a safety
+  // net in case the derived window covers more rows than requested (game_no gaps).
   if (count !== null) games = games.slice(0, count)
 
   return NextResponse.json({ games })
