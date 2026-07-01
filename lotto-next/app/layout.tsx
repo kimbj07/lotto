@@ -1,4 +1,6 @@
 import type { Metadata } from 'next'
+import { Analytics } from '@vercel/analytics/next'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 import './globals.css'
 import NavBar from '@/components/NavBar'
 
@@ -31,6 +33,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="relative z-10 max-w-3xl mx-auto px-5 sm:px-6 py-10 sm:py-12">
           {children}
         </main>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   )
