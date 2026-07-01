@@ -11,19 +11,22 @@ import type { GameInfo, AppearanceCount } from '@/types/lotto'
 // Best-effort recording of a generated recommendation for later grading.
 // Uses the service_role client (anon is read-only). Failures are swallowed so
 // recording never breaks the recommendation response.
-async function recordRecommendation(numbers: number[], mode: string): Promise<void> {
+async function recordRecommendation(numbers: number[], mode: string, targetGameNo?: number): Promise<void> {
   try {
     const admin = createAdminClient()
-    const { data: latestRow } = await admin
-      .from('game_info')
-      .select('game_no')
-      .order('game_no', { ascending: false })
-      .limit(1)
-      .single()
-    const latestNo = (latestRow?.game_no as number | undefined) ?? 0
+    let target = targetGameNo
+    if (target === undefined) {
+      const { data: latestRow } = await admin
+        .from('game_info')
+        .select('game_no')
+        .order('game_no', { ascending: false })
+        .limit(1)
+        .single()
+      target = ((latestRow?.game_no as number | undefined) ?? 0) + 1
+    }
     const { error } = await admin
       .from('recommendations')
-      .insert({ target_game_no: latestNo + 1, mode, numbers })
+      .insert({ target_game_no: target, mode, numbers })
     if (error) console.error('recordRecommendation failed:', error.message)
   } catch (e) {
     console.error('recordRecommendation threw:', e)
@@ -88,7 +91,7 @@ export async function GET(req: NextRequest) {
     const numbers = mode === 'exception'
       ? recommendException(games, counts)
       : recommendStats(games, counts)
-    await recordRecommendation(numbers, mode)
+    await recordRecommendation(numbers, mode, latestNo + 1)
     return NextResponse.json({ numbers })
   } catch (e: unknown) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 })

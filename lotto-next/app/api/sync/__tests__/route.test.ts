@@ -90,6 +90,8 @@ it('grades each synced round and rebuilds the summary once', async () => {
   expect(rpcMock).toHaveBeenCalledWith('grade_recommendations', { p_game_no: 1231 })
   expect(rpcMock).toHaveBeenCalledWith('refresh_recommendation_summary')
   expect(rpcMock.mock.calls.filter(c => c[0] === 'refresh_recommendation_summary')).toHaveLength(1)
+  expect(rpcMock).toHaveBeenCalledWith('grade_pending_recommendations')
+  expect(rpcMock.mock.calls.filter(c => c[0] === 'grade_pending_recommendations')).toHaveLength(1)
 })
 
 it('does not grade or refresh when nothing is synced', async () => {

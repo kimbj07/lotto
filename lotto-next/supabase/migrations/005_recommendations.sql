@@ -79,11 +79,44 @@ BEGIN
 END;
 $$;
 
+-- Self-healing grader: grade every ungraded recommendation whose target round
+-- has already been drawn (exists in game_info). Idempotent — safe to run each
+-- sync; catches any pick that missed its round's one-shot grade_recommendations.
+CREATE OR REPLACE FUNCTION grade_pending_recommendations()
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  UPDATE recommendations r
+  SET graded = true,
+      rank = CASE
+        WHEN sub.wc = 6 THEN 1
+        WHEN sub.wc = 5 AND sub.bc = 1 THEN 2
+        WHEN sub.wc = 5 THEN 3
+        WHEN sub.wc = 4 THEN 4
+        WHEN sub.wc = 3 THEN 5
+        ELSE NULL
+      END
+  FROM (
+    SELECT r2.id,
+      (SELECT count(*) FROM win_numbers w
+         WHERE w.game_no = r2.target_game_no AND w.number = ANY(r2.numbers)) AS wc,
+      (SELECT count(*) FROM bonus_number b
+         WHERE b.game_no = r2.target_game_no AND b.number = ANY(r2.numbers)) AS bc
+    FROM recommendations r2
+    WHERE r2.graded = false
+      AND EXISTS (SELECT 1 FROM game_info g WHERE g.game_no = r2.target_game_no)
+  ) sub
+  WHERE r.id = sub.id;
+END;
+$$;
+
 -- Grants (mirror 004_grants.sql least-privilege pattern)
 GRANT SELECT ON public.recommendations        TO anon, authenticated;
 GRANT SELECT ON public.recommendation_summary TO anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.recommendations        TO service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.recommendation_summary TO service_role;
 GRANT USAGE, SELECT ON SEQUENCE recommendations_id_seq TO service_role;
-GRANT EXECUTE ON FUNCTION grade_recommendations(integer)   TO service_role;
+GRANT EXECUTE ON FUNCTION grade_recommendations(integer)        TO service_role;
+GRANT EXECUTE ON FUNCTION grade_pending_recommendations()       TO service_role;
 GRANT EXECUTE ON FUNCTION refresh_recommendation_summary() TO anon, authenticated, service_role;

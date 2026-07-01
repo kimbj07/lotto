@@ -112,7 +112,9 @@ async function syncHandler(req: NextRequest): Promise<NextResponse> {
   // served this cron request; other warm instances self-heal within the TTL.
   if (synced > 0) {
     clearCache()
-    // Rebuild the materialized recommendation summary from the freshly graded rows.
+    // Self-healing: grade any drawn-round picks that missed their one-shot grade
+    // (e.g. inserted during this run's grading window), then rebuild the summary.
+    await supabase.rpc('grade_pending_recommendations')
     await supabase.rpc('refresh_recommendation_summary')
   }
 
