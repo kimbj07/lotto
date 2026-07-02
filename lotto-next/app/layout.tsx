@@ -5,8 +5,13 @@ import './globals.css'
 import NavBar from '@/components/NavBar'
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://lotto-two-delta.vercel.app'),
   title: '행운로또 — 로또 번호 추천',
   description: '로또 번호 추천, 당첨 이력, 내 번호 확인, 번호 통계 — 오늘의 행운 번호를 뽑아보세요',
+  verification: {
+    google: 'Fdw-YQBNevLCyoHyAmI7XJXZiHJFnr3fPVP2Pqi_Z6M',
+    other: { 'naver-site-verification': '1f21a8e76799bfc497e373618e3f7c79186e3973' },
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
