@@ -49,6 +49,8 @@ export async function GET() {
   const byMode = modeRes.error ? [] : ((modeRes.data as RecommendationModeSummary[]) ?? [])
 
   const body: RecommendationSummary = { allTime, rounds, byMode }
-  setCached(CACHE_KEY, body)
+  // Only cache once there's real data — don't make a cold/empty summary sticky
+  // for the full TTL (mirrors the history route's non-empty guard).
+  if (rounds.length > 0) setCached(CACHE_KEY, body)
   return NextResponse.json(body)
 }
