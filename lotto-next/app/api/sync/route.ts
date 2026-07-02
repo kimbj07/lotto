@@ -107,15 +107,17 @@ async function syncHandler(req: NextRequest): Promise<NextResponse> {
     await new Promise(r => setTimeout(r, 300))
   }
 
-  // New draws landed — evict the history "latest N" cache so the next request
-  // reflects them. Best-effort: on serverless this only clears the instance that
-  // served this cron request; other warm instances self-heal within the TTL.
+  // New draws landed. Self-healing: grade any drawn-round picks that missed their
+  // one-shot grade (e.g. inserted during this run's grading window), then rebuild
+  // the summary tables.
   if (synced > 0) {
-    clearCache()
-    // Self-healing: grade any drawn-round picks that missed their one-shot grade
-    // (e.g. inserted during this run's grading window), then rebuild the summary.
     await supabase.rpc('grade_pending_recommendations')
     await supabase.rpc('refresh_recommendation_summary')
+    // Evict caches (history "latest N" + the results summary) only AFTER the
+    // tables are fresh, so a request landing mid-refresh can't re-prime the
+    // summary cache with stale data. Best-effort per warm instance; other
+    // instances self-heal within the TTL.
+    clearCache()
   }
 
   return NextResponse.json({ synced, skipped, latestGameNo, lastSavedGameNo })
