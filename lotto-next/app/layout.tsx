@@ -3,11 +3,29 @@ import { Analytics } from '@vercel/analytics/next'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import './globals.css'
 import NavBar from '@/components/NavBar'
+import PromoBanner from '@/components/PromoBanner'
+import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from '@/lib/siteConfig'
+
+const TITLE = '행운로또 — 로또 번호 추천'
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://lotto-two-delta.vercel.app'),
-  title: '행운로또 — 로또 번호 추천',
-  description: '로또 번호 추천, 당첨 이력, 내 번호 확인, 번호 통계 — 오늘의 행운 번호를 뽑아보세요',
+  metadataBase: new URL(SITE_URL),
+  title: TITLE,
+  description: SITE_DESCRIPTION,
+  // og:image / twitter:image are auto-wired by app/opengraph-image.tsx.
+  openGraph: {
+    title: TITLE,
+    description: SITE_DESCRIPTION,
+    url: SITE_URL,
+    siteName: SITE_NAME,
+    locale: 'ko_KR',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: TITLE,
+    description: SITE_DESCRIPTION,
+  },
   verification: {
     google: 'Fdw-YQBNevLCyoHyAmI7XJXZiHJFnr3fPVP2Pqi_Z6M',
     other: { 'naver-site-verification': '1f21a8e76799bfc497e373618e3f7c79186e3973' },
@@ -38,6 +56,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <main className="relative z-10 max-w-3xl mx-auto px-5 sm:px-6 py-10 sm:py-12">
           {children}
         </main>
+        <footer className="relative z-10 max-w-3xl mx-auto px-5 sm:px-6 pb-12">
+          <PromoBanner />
+        </footer>
         <Analytics />
         <SpeedInsights />
       </body>
