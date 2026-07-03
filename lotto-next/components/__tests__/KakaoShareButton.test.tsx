@@ -41,18 +41,18 @@ describe('KakaoShareButton', () => {
     expect(await screen.findByText('링크 복사됨!')).toBeInTheDocument()
   })
 
-  it('uses Kakao Share (feed + OG image) when the SDK is initialized', async () => {
-    const sendDefault = jest.fn()
-    w.Kakao = { isInitialized: () => true, init: jest.fn(), Share: { sendDefault } }
+  it('uses Kakao sendScrap on the site URL when the SDK is initialized', async () => {
+    const sendScrap = jest.fn()
+    w.Kakao = {
+      isInitialized: () => true,
+      init: jest.fn(),
+      Share: { sendDefault: jest.fn(), sendScrap },
+    }
     render(<KakaoShareButton />)
     clickShare()
-    await waitFor(() => expect(sendDefault).toHaveBeenCalledTimes(1))
-    const arg = sendDefault.mock.calls[0][0] as {
-      objectType: string
-      content: { imageUrl: string }
-    }
-    expect(arg.objectType).toBe('feed')
-    expect(arg.content.imageUrl).toContain('/opengraph-image')
+    await waitFor(() => expect(sendScrap).toHaveBeenCalledTimes(1))
+    const arg = sendScrap.mock.calls[0][0] as { requestUrl: string }
+    expect(arg.requestUrl).toBe('https://lotto-two-delta.vercel.app')
     expect(writeText).not.toHaveBeenCalled()
   })
 })
