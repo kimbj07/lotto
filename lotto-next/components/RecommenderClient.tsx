@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { ReactNode } from 'react'
 import BallSet from './BallSet'
 import SelectableNumberGrid from './SelectableNumberGrid'
+import KakaoShareButton from './KakaoShareButton'
 import type { RecommendMode } from '@/types/lotto'
 
 const MODES: { key: RecommendMode; label: string; desc: string }[] = [
@@ -155,6 +156,9 @@ export default function RecommenderClient() {
         <div className="mt-8 rounded-3xl p-6 bg-gradient-to-br from-emerald-50 to-amber-50 border border-black/5 text-center">
           <p className="font-display text-brand-dark mb-4">✨ 당신의 행운 번호</p>
           <BallSet balls={numbers} className="justify-center flex-wrap" />
+          <div className="mt-6 flex justify-center">
+            <KakaoShareButton />
+          </div>
         </div>
       )}
     </div>
