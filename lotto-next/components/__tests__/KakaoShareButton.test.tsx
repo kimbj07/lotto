@@ -41,18 +41,20 @@ describe('KakaoShareButton', () => {
     expect(await screen.findByText('링크 복사됨!')).toBeInTheDocument()
   })
 
-  it('uses Kakao sendScrap on the site URL when the SDK is initialized', async () => {
-    const sendScrap = jest.fn()
-    w.Kakao = {
-      isInitialized: () => true,
-      init: jest.fn(),
-      Share: { sendDefault: jest.fn(), sendScrap },
-    }
+  it('uses sendDefault feed with a STATIC image + site link when initialized', async () => {
+    const sendDefault = jest.fn()
+    w.Kakao = { isInitialized: () => true, init: jest.fn(), Share: { sendDefault } }
     render(<KakaoShareButton />)
     clickShare()
-    await waitFor(() => expect(sendScrap).toHaveBeenCalledTimes(1))
-    const arg = sendScrap.mock.calls[0][0] as { requestUrl: string }
-    expect(arg.requestUrl).toBe('https://lotto-two-delta.vercel.app')
+    await waitFor(() => expect(sendDefault).toHaveBeenCalledTimes(1))
+    const arg = sendDefault.mock.calls[0][0] as {
+      objectType: string
+      content: { imageUrl: string; link: { webUrl: string } }
+    }
+    expect(arg.objectType).toBe('feed')
+    // static file, NOT the dynamic /opengraph-image route (which Kakao drops)
+    expect(arg.content.imageUrl).toBe('https://lotto-two-delta.vercel.app/og-image.png')
+    expect(arg.content.link.webUrl).toBe('https://lotto-two-delta.vercel.app')
     expect(writeText).not.toHaveBeenCalled()
   })
 })

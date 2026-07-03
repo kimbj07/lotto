@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react'
 import Script from 'next/script'
-import { SITE_URL } from '@/lib/siteConfig'
+import { SITE_URL, SITE_NAME } from '@/lib/siteConfig'
 
 // Kakao JS SDK, pinned + Subresource-Integrity-checked. Only loaded when a public
 // app key is configured; without it the button degrades to a copy-link fallback.
@@ -12,10 +12,13 @@ const KAKAO_SDK_INTEGRITY =
 // The JavaScript key is public by design (embedded in client code).
 const KAKAO_KEY = process.env.NEXT_PUBLIC_KAKAO_JS_KEY
 
-// Copy-link fallback text (used when the Kakao SDK isn't available). The Kakao
-// card itself is built by Kakao scraping SITE_URL's OG tags.
 const SHARE_MESSAGE =
   '🍀 행운로또에서 오늘의 행운 번호를 뽑아보세요! 로또 번호 추천부터 당첨 이력, 통계까지 무료로.'
+// STATIC image, not the dynamic /opengraph-image route: Kakao's card scraper
+// silently drops the dynamic route (chunked, no Content-Length) and falls back to
+// its default placeholder, which also breaks the card's link. A static file in
+// /public serves with a Content-Length and works (matches the sister mengsaju app).
+const KAKAO_IMAGE = `${SITE_URL}/og-image.png`
 
 // The Kakao SDK attaches itself to window at runtime; type only what we call.
 type KakaoSdk = {
@@ -23,7 +26,6 @@ type KakaoSdk = {
   init: (key: string) => void
   Share: {
     sendDefault: (settings: unknown) => void
-    sendScrap: (settings: unknown) => void
   }
 }
 declare global {
@@ -44,11 +46,18 @@ export default function KakaoShareButton() {
     const Kakao = window.Kakao
     if (Kakao?.isInitialized?.()) {
       try {
-        // sendScrap: Kakao scrapes SITE_URL's OG tags (og:title/description/image)
-        // to build the card and links straight to the scraped page. More reliable
-        // than sendDefault's custom imageUrl/link, which Kakao was mangling
-        // (dropped image, dead link).
-        Kakao.Share.sendScrap({ requestUrl: SITE_URL })
+        Kakao.Share.sendDefault({
+          objectType: 'feed',
+          content: {
+            title: `${SITE_NAME} — 오늘의 행운 번호 🍀`,
+            description: SHARE_MESSAGE,
+            imageUrl: KAKAO_IMAGE,
+            link: { mobileWebUrl: SITE_URL, webUrl: SITE_URL },
+          },
+          buttons: [
+            { title: '번호 추천받기', link: { mobileWebUrl: SITE_URL, webUrl: SITE_URL } },
+          ],
+        })
         return
       } catch {
         // Kakao send failed — fall through to copy.
