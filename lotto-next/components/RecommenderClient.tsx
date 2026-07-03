@@ -1,11 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import BallSet from './BallSet'
+import DrawAnimation from './DrawAnimation'
 import SelectableNumberGrid from './SelectableNumberGrid'
 import KakaoShareButton from './KakaoShareButton'
 import type { RecommendMode } from '@/types/lotto'
+
+// Minimum time the draw cage spins, so a fast fetch still shows a full draw
+// instead of a flash. A slow fetch just spins longer.
+const MIN_SPIN_MS = 800
+
+type Phase = 'idle' | 'drawing' | 'result'
 
 const MODES: { key: RecommendMode; label: string; desc: string }[] = [
   { key: 'stats', label: '통계 기반', desc: '자주 나온 번호와 최근 보너스 번호를 피하고, 저빈도·중간 빈도 번호를 섞어 추천합니다.' },
@@ -59,12 +66,24 @@ export default function RecommenderClient() {
   const [include, setInclude] = useState<number[]>([])
   const [exclude, setExclude] = useState<number[]>([])
   const [numbers, setNumbers] = useState<number[]>([])
-  const [loading, setLoading] = useState(false)
+  const [phase, setPhase] = useState<Phase>('idle')
   const [error, setError] = useState<string | null>(null)
   const [includeOpen, setIncludeOpen] = useState(false)
   const [excludeOpen, setExcludeOpen] = useState(false)
+  const [reduceMotion, setReduceMotion] = useState(false)
+
+  // Honor the OS "reduce motion" setting: skip the spin + tumble when set.
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
+    setReduceMotion(mq.matches)
+    const onChange = (e: MediaQueryListEvent) => setReduceMotion(e.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
 
   const desc = MODES.find(m => m.key === mode)!.desc
+  const drawing = phase === 'drawing'
 
   function toggle(list: number[], set: (v: number[]) => void, max: number, n: number) {
     if (list.includes(n)) set(list.filter(x => x !== n))
@@ -72,19 +91,22 @@ export default function RecommenderClient() {
   }
 
   async function generate() {
-    setLoading(true); setError(null)
+    setError(null)
+    setPhase('drawing')
+    const minSpin = new Promise<void>((r) => setTimeout(r, reduceMotion ? 0 : MIN_SPIN_MS))
     try {
       const params = new URLSearchParams({ mode })
       if (include.length) params.set('include', include.join(','))
       if (exclude.length) params.set('exclude', exclude.join(','))
-      const res = await fetch(`/api/recommend?${params}`)
+      // Fetch and the minimum spin run together; reveal once both are done.
+      const [res] = await Promise.all([fetch(`/api/recommend?${params}`), minSpin])
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       setNumbers(data.numbers)
+      setPhase('result')
     } catch (e: unknown) {
       setError((e as Error).message)
-    } finally {
-      setLoading(false)
+      setPhase('idle')
     }
   }
 
@@ -145,17 +167,23 @@ export default function RecommenderClient() {
       </div>
 
       <div className="mt-7 text-center">
-        <button onClick={generate} disabled={loading} className="btn-gold">
-          {loading ? '추첨 중...' : '🎱 번호 추천받기'}
+        <button onClick={generate} disabled={drawing} className="btn-gold">
+          {drawing ? '추첨 중...' : '🎱 번호 추천받기'}
         </button>
       </div>
 
       {error && <p className="mt-4 text-red-500 text-sm text-center">{error}</p>}
 
-      {numbers.length > 0 && (
+      {drawing && (
+        <div className="mt-8 rounded-3xl p-6 bg-gradient-to-br from-emerald-50 to-amber-50 border border-black/5 flex justify-center">
+          <DrawAnimation />
+        </div>
+      )}
+
+      {phase === 'result' && numbers.length > 0 && (
         <div className="mt-8 rounded-3xl p-6 bg-gradient-to-br from-emerald-50 to-amber-50 border border-black/5 text-center">
           <p className="font-display text-brand-dark mb-4">✨ 당신의 행운 번호</p>
-          <BallSet balls={numbers} className="justify-center flex-wrap" />
+          <BallSet balls={numbers} animate={!reduceMotion} className="justify-center flex-wrap" />
           <div className="mt-6 flex justify-center">
             <KakaoShareButton />
           </div>

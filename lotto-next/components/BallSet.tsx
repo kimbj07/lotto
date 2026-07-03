@@ -5,13 +5,15 @@ interface BallSetProps {
   bonusBall?: number
   size?: 'md' | 'sm'
   className?: string
+  // When true, the balls tumble in one after another (150ms apart).
+  animate?: boolean
 }
 
-export default function BallSet({ balls, bonusBall, size = 'md', className = '' }: BallSetProps) {
+export default function BallSet({ balls, bonusBall, size = 'md', className = '', animate = false }: BallSetProps) {
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       {balls.map((n, i) => (
-        <LottoBall key={i} number={n} size={size} />
+        <LottoBall key={i} number={n} size={size} animate={animate} animationDelayMs={i * 150} />
       ))}
       {bonusBall !== undefined && (
         <>
