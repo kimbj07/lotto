@@ -19,6 +19,13 @@ const SHARE_MESSAGE =
 // its default placeholder, which also breaks the card's link. A static file in
 // /public serves with a Content-Length and works (matches the sister mengsaju app).
 const KAKAO_IMAGE = `${SITE_URL}/og-image.png`
+// Kakao resolves a shared card's link through a registered "domain id" (did).
+// A BARE domain (…vercel.app) makes Kakao substitute a numeric did that resolves
+// to nothing, so tapping the card does nothing. Giving it a non-bare URL (a query
+// string is enough) makes Kakao use the real URL as the did — the tap opens the
+// site. The query also doubles as share attribution. (The working mengsaju app
+// avoids the bare domain the same way, via a URL fragment.)
+const KAKAO_LINK = `${SITE_URL}/?utm_source=kakao&utm_medium=share`
 
 // The Kakao SDK attaches itself to window at runtime; type only what we call.
 type KakaoSdk = {
@@ -52,10 +59,10 @@ export default function KakaoShareButton() {
             title: `${SITE_NAME} — 오늘의 행운 번호 🍀`,
             description: SHARE_MESSAGE,
             imageUrl: KAKAO_IMAGE,
-            link: { mobileWebUrl: SITE_URL, webUrl: SITE_URL },
+            link: { mobileWebUrl: KAKAO_LINK, webUrl: KAKAO_LINK },
           },
           buttons: [
-            { title: '번호 추천받기', link: { mobileWebUrl: SITE_URL, webUrl: SITE_URL } },
+            { title: '번호 추천받기', link: { mobileWebUrl: KAKAO_LINK, webUrl: KAKAO_LINK } },
           ],
         })
         return

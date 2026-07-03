@@ -54,7 +54,12 @@ describe('KakaoShareButton', () => {
     expect(arg.objectType).toBe('feed')
     // static file, NOT the dynamic /opengraph-image route (which Kakao drops)
     expect(arg.content.imageUrl).toBe('https://lotto-two-delta.vercel.app/og-image.png')
-    expect(arg.content.link.webUrl).toBe('https://lotto-two-delta.vercel.app')
+    // NON-bare link: Kakao resolves a bare domain to a dead numeric did, so the
+    // shared card must carry a URL with a query string for the tap to open the site.
+    expect(arg.content.link.webUrl).toBe(
+      'https://lotto-two-delta.vercel.app/?utm_source=kakao&utm_medium=share'
+    )
+    expect(arg.content.link.webUrl).not.toBe('https://lotto-two-delta.vercel.app')
     expect(writeText).not.toHaveBeenCalled()
   })
 })
