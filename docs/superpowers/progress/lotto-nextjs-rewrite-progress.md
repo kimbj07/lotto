@@ -53,12 +53,13 @@ Feature work after the initial launch. Squash-merge commits are tagged `(#N)` in
 - **#15** Code-review fixes: `/api/sync` now `clearCache()`s AFTER the grade+refresh RPCs (was evicting before tables were fresh); empty-cache guard on the summary route.
 - **#16** OG/social tags + branded OG image + footer promo banner. `lib/siteConfig.ts` centralizes site URL/name/description. `app/opengraph-image.tsx` = next/og 1200×630 branded image. `components/PromoBanner.tsx` = footer cross-promo card (멍사주, mengsaju.vercel.app; `target=_blank rel=noopener`).
 - **#17** Review follow-up: vendored the OG font locally (`app/fonts/Jua-og.ttf`, ~14KB Jua OFL subset, read via `readFile`) to drop the OG image's build-time Google-Fonts dependency; removed the global `openGraph.url` (it made every sub-page emit the homepage as its `og:url`).
+- **#19** KakaoTalk share button on `/` after a recommendation (`components/KakaoShareButton.tsx`). Shares the site (inviting message + branded OG image), not the drawn numbers. Loads the Kakao JS SDK (pinned `2.7.5` + SRI) only when `NEXT_PUBLIC_KAKAO_JS_KEY` is set; `Kakao.Share.sendDefault` feed template; degrades to copy-link when unavailable. Note: the live send only works from the Kakao-console-registered domain, so it's verified in prod, not locally.
 
 ---
 
 ## Pages / API routes
 
-Pages: `/` (Recommender + include/exclude pickers), `/history`, `/my-numbers`, `/stats`, `/results` (번호 추천 결과). Every page shows a footer `<PromoBanner />`.
+Pages: `/` (Recommender + include/exclude pickers + KakaoTalk share button after a recommendation), `/history`, `/my-numbers`, `/stats`, `/results` (번호 추천 결과). Every page shows a footer `<PromoBanner />`.
 API: `/api/sync`, `/api/recommend`, `/api/history`, `/api/my-numbers`, `/api/stats`, `/api/recommendations/summary`.
 Metadata routes: `/sitemap.xml`, `/robots.txt`, `/opengraph-image` (statically generated PNG), `/icon.svg`, `/apple-icon`.
 
@@ -83,6 +84,7 @@ NEXT_PUBLIC_SUPABASE_URL=      # Supabase dashboard → Project Settings → API
 NEXT_PUBLIC_SUPABASE_ANON_KEY= # Supabase dashboard → Project Settings → API
 SUPABASE_SERVICE_ROLE_KEY=     # Supabase dashboard → Project Settings → API (server-only)
 CRON_SECRET=                   # generate: openssl rand -hex 32
+NEXT_PUBLIC_KAKAO_JS_KEY=      # developers.kakao.com → app → JavaScript key (public; register the site domain + enable 카카오톡 공유)
 ```
 
 Stored in `.env.local` (gitignored) for local dev; set in Vercel project env for prod. Never commit real values.
