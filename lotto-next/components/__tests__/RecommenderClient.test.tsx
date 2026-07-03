@@ -38,6 +38,20 @@ describe('RecommenderClient', () => {
     expect(url).toContain('include=7')
   })
 
+  it('shows the Kakao share button after numbers are generated', async () => {
+    const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ numbers: [1, 2, 3, 4, 5, 6] }) })
+    global.fetch = fetchMock as unknown as typeof fetch
+    render(<RecommenderClient />)
+
+    // no share button before a recommendation exists
+    expect(screen.queryByRole('button', { name: /카카오톡으로 행운로또 공유하기/ })).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /번호 추천받기/ }))
+    expect(
+      await screen.findByRole('button', { name: /카카오톡으로 행운로또 공유하기/ })
+    ).toBeInTheDocument()
+  })
+
   it('sends exclude param when a number is excluded', async () => {
     const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ numbers: [4, 5, 6, 7, 8, 9] }) })
     global.fetch = fetchMock as unknown as typeof fetch
