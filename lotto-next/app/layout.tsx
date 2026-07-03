@@ -6,17 +6,18 @@ import NavBar from '@/components/NavBar'
 import PromoBanner from '@/components/PromoBanner'
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from '@/lib/siteConfig'
 
-const TITLE = '행운로또 — 로또 번호 추천'
+const TITLE = `${SITE_NAME} — 로또 번호 추천`
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: TITLE,
   description: SITE_DESCRIPTION,
   // og:image / twitter:image are auto-wired by app/opengraph-image.tsx.
+  // Intentionally no openGraph.url: setting it here would force every sub-page's
+  // og:url to the homepage. Omitting it lets crawlers use each page's own URL.
   openGraph: {
     title: TITLE,
     description: SITE_DESCRIPTION,
-    url: SITE_URL,
     siteName: SITE_NAME,
     locale: 'ko_KR',
     type: 'website',
