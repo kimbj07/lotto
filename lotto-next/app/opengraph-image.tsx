@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { ImageResponse } from 'next/og'
 
 export const size = { width: 1200, height: 630 }
@@ -7,17 +9,13 @@ export const alt = '행운로또 — 로또 번호 추천'
 const LEAF =
   'M0 0 C0 0 -9 -7 -9 -13 C-9 -16 -7 -18 -4 -18 C-2 -18 0 -16 0 -15 C0 -16 2 -18 4 -18 C7 -18 9 -16 9 -13 C9 -7 0 0 0 0 Z'
 
-async function loadGoogleFont(font: string, text: string) {
-  const url = `https://fonts.googleapis.com/css2?family=${font}&text=${encodeURIComponent(text)}`
-  const css = await (await fetch(url)).text()
-  const resource = css.match(/src: url\(([^)]+)\) format\('(opentype|truetype)'\)/)
-  if (!resource) throw new Error('font not found')
-  const res = await fetch(resource[1])
-  return res.arrayBuffer()
-}
-
+// Satori (next/og's engine) can't use system fonts, so Korean needs an embedded
+// font. We vendor Jua (Google Fonts, OFL) subset to only the glyphs this image
+// renders (app/fonts/Jua-og.ttf, ~14KB) and read it from disk — this route is
+// statically generated at build time, so a local read keeps the build free of
+// any network dependency on fonts.googleapis.com.
 export default async function OpengraphImage() {
-  const fontData = await loadGoogleFont('Jua', '행운로또 번호 추천 당첨 이력 통계')
+  const fontData = await readFile(join(process.cwd(), 'app/fonts/Jua-og.ttf'))
 
   return new ImageResponse(
     (
