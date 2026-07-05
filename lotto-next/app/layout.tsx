@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     description: SITE_DESCRIPTION,
   },
   verification: {
-    google: 'Fdw-YQBNevLCyoHyAmI7XJXZiHJFnr3fPVP2Pqi_Z6M',
+    google: 'vOm3o5eJjnHQ9GCy9o5m-df1R7b8UDKo-aBR-V_2vtU',
     other: { 'naver-site-verification': '1f21a8e76799bfc497e373618e3f7c79186e3973' },
   },
 }
