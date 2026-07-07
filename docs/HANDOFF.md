@@ -1,8 +1,9 @@
 # 행운로또 — Project Handoff / Continue on Another PC
 
 Portable, self-contained guide to pick this project back up on a different machine.
-**No secrets are stored here** — only where to obtain each one. Last updated 2026-07-03
-(app is live, merged through **PR #25**).
+**No secrets are stored here** — only where to obtain each one. Last updated 2026-07-07
+(app is live, merged through **PR #27**; latest `master` = `53f2b5d`, which added an
+이름 궁합 promo banner — see §7).
 
 For the full PR-by-PR history see [`docs/superpowers/progress/lotto-nextjs-rewrite-progress.md`](superpowers/progress/lotto-nextjs-rewrite-progress.md)
 and `git log` (squash-merge commits are tagged `(#N)`). The spec + plans live under
@@ -18,12 +19,14 @@ rewritten from a legacy Java Spring MVC + iBatis + MySQL app. No auth; fully pub
 - **Live:** https://lotto-two-delta.vercel.app
 - **Repo:** https://github.com/kimbj07/lotto (GitHub account **kimbj07**), default branch `master`.
 - **App code:** `lotto-next/` (the legacy Java project sits beside it under `lotto/`).
-- **Sister app:** **멍사주** https://mengsaju.vercel.app (`kimbj07/mengsaju`) — the two
-  apps cross-promote each other. See §7.
+- **Sister apps:** **멍사주** https://mengsaju.vercel.app (`kimbj07/mengsaju`) and
+  **이름 궁합** https://gunghap-three.vercel.app (`kimbj07/gunghap`) — the apps cross-promote
+  each other. See §7.
 
 Pages: `/` (number recommender + include/exclude pickers + draw animation + Kakao share),
 `/history`, `/my-numbers`, `/stats`, `/results` (번호 추천 결과). Every page has a footer
-멍사주 promo banner.
+with **two** promo banners (멍사주 + 이름 궁합), rendered from the `BANNERS` array in
+`components/PromoBanner.tsx`.
 
 ---
 
@@ -129,13 +132,21 @@ draw. 1230 draws are seeded (`game_info`, `win_numbers`, `bonus_number`); latest
 
 ---
 
-## 7. Sister repo: 멍사주 (mengsaju)
+## 7. Sister repos: 멍사주 (mengsaju) + 이름 궁합 (gunghap)
 
 `~/workspace/mengsaju` — the owner's other app (`kimbj07/mengsaju`, Vite + React 19 + TS +
-Tailwind v4, live at mengsaju.vercel.app, auto-deploys from `main`). The two apps run a
-**reciprocal cross-promo**: lotto shows a 멍사주 banner (`components/PromoBanner.tsx`), and
-mengsaju shows a 행운로또 banner on every page (mengsaju PR #3). When you change one side's
-promo, update the other.
+Tailwind v4, live at mengsaju.vercel.app, auto-deploys from `main`).
+
+`~/workspace/gunghap` — 이름 궁합 (`kimbj07/gunghap`, Vite + React 19 + TS + Tailwind,
+live at gunghap-three.vercel.app, deploys from `feat/app`).
+
+The apps run a **reciprocal cross-promo**. This repo's `components/PromoBanner.tsx` is a
+`BANNERS` array that renders **both** a 멍사주 banner and an 이름 궁합 banner in the footer
+(the gunghap one was added in `master` `53f2b5d`). In the other direction: mengsaju shows a
+행운로또 banner (PR #3) **and** an 이름 궁합 banner (`8a00475`); gunghap shows 행운로또 +
+멍사주 banners. **When you change one side's promo set, update the others** so the cross-links
+stay symmetric. Each app's current sister-banner state is tracked in its `STATUS.md`
+(gunghap/mengsaju) — mengsaju's is at repo root, gunghap's too.
 
 mengsaju operational quirks (differ from this repo):
 - **All commands run in Docker:** `docker compose run --rm app <cmd>` (e.g. `npx tsc --noEmit`,
@@ -152,7 +163,7 @@ mengsaju operational quirks (differ from this repo):
 ## 8. Open ideas / possible next tasks
 
 No hard blockers. Recently shipped: Kakao share (working), lottery-cage draw animation,
-reciprocal cross-promo banners. Candidate follow-ups (not committed to):
+reciprocal cross-promo banners (멍사주 + 이름 궁합, `53f2b5d`). Candidate follow-ups (not committed to):
 
 - Verify Kakao share attribution + cross-promo UTM traffic in Vercel Analytics.
 - Consider share-count / lightweight analytics on the recommend flow.
