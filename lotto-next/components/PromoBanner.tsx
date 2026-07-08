@@ -10,7 +10,7 @@ const BANNERS = [
     ctaClassName: 'text-amber-600 group-hover:text-amber-700',
   },
   {
-    href: 'https://gunghap-three.vercel.app',
+    href: 'https://name-gunghap.vercel.app',
     ariaLabel: '이름 궁합 — 이름으로 보는 궁합 테스트를 새 탭에서 엽니다',
     title: '💕 이름 궁합 · 이름으로 보는 궁합',
     description: '두 사람의 한글 이름으로 궁합을 확인해보세요',

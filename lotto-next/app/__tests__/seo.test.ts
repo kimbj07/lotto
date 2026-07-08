@@ -1,7 +1,7 @@
 import sitemap from '../sitemap'
 import robots from '../robots'
 
-const BASE = 'https://lotto-two-delta.vercel.app'
+const BASE = 'https://luck-lotto.vercel.app'
 
 describe('sitemap', () => {
   it('lists all public pages with the canonical base URL', () => {
