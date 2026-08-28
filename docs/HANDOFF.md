@@ -1,9 +1,9 @@
 # 행운로또 — Project Handoff / Continue on Another PC
 
 Portable, self-contained guide to pick this project back up on a different machine.
-**No secrets are stored here** — only where to obtain each one. Last updated 2026-07-07
-(app is live, merged through **PR #27**; latest `master` = `53f2b5d`, which added an
-이름 궁합 promo banner — see §7).
+**No secrets are stored here** — only where to obtain each one. Last updated 2026-08-29
+(app is live, merged through **PR #28**; **PR #29** adds the 5등 노리기 mode — see §1/§8.
+Canonical domain is now **luck-lotto.vercel.app**, `efb3748`).
 
 For the full PR-by-PR history see [`docs/superpowers/progress/lotto-nextjs-rewrite-progress.md`](superpowers/progress/lotto-nextjs-rewrite-progress.md)
 and `git log` (squash-merge commits are tagged `(#N)`). The spec + plans live under
@@ -16,17 +16,27 @@ and `git log` (squash-merge commits are tagged `(#N)`). The spec + plans live un
 A Korean lotto helper — Next.js 14 (App Router) + Supabase (Postgres) + Vercel,
 rewritten from a legacy Java Spring MVC + iBatis + MySQL app. No auth; fully public.
 
-- **Live:** https://lotto-two-delta.vercel.app
+- **Live:** https://luck-lotto.vercel.app (canonical, `lib/siteConfig.ts`; the old
+  `lotto-two-delta.vercel.app` alias still resolves).
 - **Repo:** https://github.com/kimbj07/lotto (GitHub account **kimbj07**), default branch `master`.
-- **App code:** `lotto-next/` (the legacy Java project sits beside it under `lotto/`).
+- **App code:** `lotto-next/` (the legacy Java project sits beside it under `src/`).
 - **Sister apps:** **멍사주** https://mengsaju.vercel.app (`kimbj07/mengsaju`) and
-  **이름 궁합** https://gunghap-three.vercel.app (`kimbj07/gunghap`) — the apps cross-promote
+  **이름 궁합** https://name-gunghap.vercel.app (`kimbj07/gunghap`) — the apps cross-promote
   each other. See §7.
 
 Pages: `/` (number recommender + include/exclude pickers + draw animation + Kakao share),
 `/history`, `/my-numbers`, `/stats`, `/results` (번호 추천 결과). Every page has a footer
 with **two** promo banners (멍사주 + 이름 궁합), rendered from the `BANNERS` array in
 `components/PromoBanner.tsx`.
+
+Recommendation modes (`lib/recommend.ts`, `/api/recommend?mode=`): `stats`, `exception`,
+`random` (one 6-number game each) and **`target5` = 5등 노리기** (PR #29): one 5-game slip
+whose 30 numbers never overlap. Exact enumeration over all C(45,6) draws gives
+P(≥1 of the 5 games matches 3+) = **11.87%** vs 11.23% for 5 independent random games
+(2.38% for one game); the expected number of winning games is identical for every layout
+(the draw is uniform), only the overlap between the games' win events changes. The UI says
+so plainly. The response shape differs: `{ games: number[][], slipId }` instead of
+`{ numbers }`, and the 5 games are recorded as 5 `recommendations` rows sharing `slip_id`.
 
 ---
 
@@ -81,8 +91,10 @@ npm run build              # compile + type-check + lint
   manual deploy step. Preview deploys for non-prod branches are auth-gated (login to view)
   and **share the production Supabase** — seeded/DDL changes there affect prod too.
 - **Supabase migrations are DDL** and must be applied **by a human in the Supabase SQL
-  editor** (the service_role REST key can't run DDL). Migrations `001–007` are all applied.
-  New migrations live in `supabase/migrations/`.
+  editor** (the service_role REST key can't run DDL). Migrations `001–007` are applied.
+  **`008_target5_slips.sql` (PR #29) must be applied after merging** — until then the app
+  still works, but target5 slips are recorded without `slip_id` (per-game stats only) and
+  `/results` shows no slip-level line. New migrations live in `supabase/migrations/`.
 
 ---
 
@@ -138,7 +150,7 @@ draw. 1230 draws are seeded (`game_info`, `win_numbers`, `bonus_number`); latest
 Tailwind v4, live at mengsaju.vercel.app, auto-deploys from `main`).
 
 `~/workspace/gunghap` — 이름 궁합 (`kimbj07/gunghap`, Vite + React 19 + TS + Tailwind,
-live at gunghap-three.vercel.app, deploys from `feat/app`).
+live at name-gunghap.vercel.app, deploys from `feat/app`).
 
 The apps run a **reciprocal cross-promo**. This repo's `components/PromoBanner.tsx` is a
 `BANNERS` array that renders **both** a 멍사주 banner and an 이름 궁합 banner in the footer
@@ -163,11 +175,17 @@ mengsaju operational quirks (differ from this repo):
 ## 8. Open ideas / possible next tasks
 
 No hard blockers. Recently shipped: Kakao share (working), lottery-cage draw animation,
-reciprocal cross-promo banners (멍사주 + 이름 궁합, `53f2b5d`). Candidate follow-ups (not committed to):
+reciprocal cross-promo banners (멍사주 + 이름 궁합), canonical domain luck-lotto.vercel.app,
+5등 노리기 mode (PR #29). Candidate follow-ups (not committed to):
 
+- **Apply migration 008** in Supabase after PR #29 merges (see §3).
+- After a few weekly crons, compare the target5 slip hit-rate on `/results` against the
+  11.87% theoretical value; if the owner wants more, the natural extension is a 7-game
+  layout covering 42 numbers (needs a 7-game UI + `TARGET5_GAMES` generalisation).
 - Verify Kakao share attribution + cross-promo UTM traffic in Vercel Analytics.
 - Consider share-count / lightweight analytics on the recommend flow.
-- Revisit the recommend algorithms (stats/exception modes) if win-rate data suggests tuning.
+- The stats/exception modes cannot beat 2.38%/game — a lotto draw is uniform. Don't spend
+  time "tuning" them for win-rate; only slip layout (target5) moves the at-least-one odds.
 
 Keep this file current when you finish notable work, alongside the PR changelog in
 `docs/superpowers/progress/`.

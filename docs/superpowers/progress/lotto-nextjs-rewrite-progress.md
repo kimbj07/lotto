@@ -59,6 +59,8 @@ Feature work after the initial launch. Squash-merge commits are tagged `(#N)` in
 - **#24** docs-only: logged the Kakao fixes (#22/#23) in this changelog.
 - **#25** lottery-cage **draw animation** on `/`. Tapping 번호 추천받기 plays a spinning dashed cage (`components/DrawAnimation.tsx`) while `/api/recommend` is fetched, then the 6 balls **tumble in** staggered. `RecommenderClient` runs a phase machine `idle → drawing → result`; the fetch and an **800ms minimum spin** run together (`Promise.all`) so a fast fetch still shows a full draw. `BallSet`/`LottoBall` gained an opt-in `animate` prop (default off → `/history`, `/results`, `/my-numbers` unchanged). Keyframes `cage-spin`/`cage-bounce`/`tumble-in` in `tailwind.config.ts`. Honors `prefers-reduced-motion`.
 - **(sister repo)** `kimbj07/mengsaju` PR #3: added a reciprocal **행운로또** promo banner to every mengsaju page (SPA + 13 static landing pages), linking back here with `?utm_source=mengsaju&utm_medium=banner`. See `docs/HANDOFF.md`.
+- **#26 / #27 / #28** docs (`docs/HANDOFF.md`), Google site-verification token swap, 이름 궁합 promo banner (`PromoBanner` now renders a `BANNERS` array). Direct commits `7aba77a`/`efb3748` renamed the canonical domain to **luck-lotto.vercel.app** and added Naver verification.
+- **#29** **5등 노리기 (`target5`)** — 4th recommendation mode: one 5-game slip whose 30 numbers never overlap, maximising P(≥1 game matches 3+ → 5th prize). Exact enumeration over C(45,6): 11.87% vs 11.23% for 5 independent games (2.38% for one); expected win count is layout-invariant. `recommendTarget5()` (round-robin includes, exclude ≤15), `/api/recommend?mode=target5` → `{ games, slipId }` recording 5 rows under a shared `slip_id` (retries without it if 008 isn't applied), `RecommenderClient` slip result + odds note, `ResultsClient` `SlipStats` line, **migration 008** (`slip_id`, `slip_total/slip_graded/slip_hit` on `recommendation_mode_summary`, `refresh_recommendation_summary()` rebuilt).
 
 ---
 
@@ -98,7 +100,7 @@ Stored in `.env.local` (gitignored) for local dev; set in Vercel project env for
 
 ## Migrations
 
-`supabase/migrations/` 001–007 — all applied. DDL is applied by a human in the Supabase SQL editor (the service_role REST key can't run DDL). 006 fixes an unqualified `DELETE` (Supabase runs API roles with `sql_safe_updates` on → use `DELETE … WHERE true`); 007 adds `recommendation_mode_summary` and rebuilds `refresh_recommendation_summary()` to refresh both summary tables.
+`supabase/migrations/` 001–007 — all applied; **008 pending** (apply after PR #29 merges). DDL is applied by a human in the Supabase SQL editor (the service_role REST key can't run DDL). 006 fixes an unqualified `DELETE` (Supabase runs API roles with `sql_safe_updates` on → use `DELETE … WHERE true`); 007 adds `recommendation_mode_summary` and rebuilds `refresh_recommendation_summary()` to refresh both summary tables; 008 adds `recommendations.slip_id` + slip-level columns on the mode summary and rebuilds the refresh function again (carries 006/007 verbatim).
 
 ---
 
