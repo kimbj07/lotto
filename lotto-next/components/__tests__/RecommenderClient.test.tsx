@@ -103,4 +103,34 @@ describe('RecommenderClient', () => {
     const url = fetchMock.mock.calls[0][0] as string
     expect(url).toContain('exclude=13')
   })
+
+  describe('5등 노리기 (target5)', () => {
+    const slip = [
+      [1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12], [13, 14, 15, 16, 17, 18],
+      [19, 20, 21, 22, 23, 24], [25, 26, 27, 28, 29, 30],
+    ]
+
+    it('requests mode=target5 and renders all 5 games', async () => {
+      const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ games: slip, slipId: 'x' }) })
+      global.fetch = fetchMock as unknown as typeof fetch
+      render(<RecommenderClient />)
+
+      fireEvent.click(screen.getByRole('button', { name: '5등 노리기' }))
+      expect(screen.getByText(/겹치지 않게/)).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: /5게임 추천받기/ }))
+
+      const result = await screen.findByTestId('slip-result')
+      expect(fetchMock.mock.calls[0][0] as string).toContain('mode=target5')
+      expect(within(result).getAllByRole('listitem')).toHaveLength(5)
+      expect(within(result).getByText('11.9%')).toBeInTheDocument()
+      expect(within(result).getByRole('button', { name: /카카오톡으로 행운로또 공유하기/ })).toBeInTheDocument()
+    })
+
+    it('caps the exclude picker at 15 in target5 mode', () => {
+      render(<RecommenderClient />)
+      fireEvent.click(screen.getByRole('button', { name: '5등 노리기' }))
+      const excludeSection = screen.getByTestId('exclude-grid')
+      expect(within(excludeSection).getByText('0 / 15')).toBeInTheDocument()
+    })
+  })
 })

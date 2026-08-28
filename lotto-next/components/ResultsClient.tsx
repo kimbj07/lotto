@@ -14,6 +14,7 @@ const MODE_LABELS: { key: string; label: string }[] = [
   { key: 'stats', label: '통계 기반' },
   { key: 'exception', label: '제외 기반' },
   { key: 'random', label: '랜덤' },
+  { key: 'target5', label: '5등 노리기' },
 ]
 
 function wins(r: { rank1: number; rank2: number; rank3: number; rank4: number; rank5: number }) {
@@ -54,6 +55,29 @@ function RankChips({
   )
 }
 
+// Slip-level line for multi-game modes (target5): the metric that mode
+// optimises is "at least one of the slip's games ranked", not per-game wins.
+// Rendered only once migration 008 has populated slip columns.
+function SlipStats({ r }: { r: RecommendationModeSummary }) {
+  const total = r.slip_total ?? 0
+  if (total === 0) return null
+  const graded = r.slip_graded ?? 0
+  const hit = r.slip_hit ?? 0
+  return (
+    <p data-testid="slip-stats" className="text-sm text-gray-500">
+      5게임 한 장 기준:{' '}
+      {graded > 0 ? (
+        <>
+          <b className="font-display text-brand-dark">{((hit / graded) * 100).toFixed(1)}%</b>
+          {' '}({hit.toLocaleString()} / {graded.toLocaleString()}장에서 1게임 이상 당첨)
+        </>
+      ) : (
+        <span className="text-amber-700">{total.toLocaleString()}장 집계 예정</span>
+      )}
+    </p>
+  )
+}
+
 function ModeBreakdown({ byMode }: { byMode: RecommendationModeSummary[] }) {
   return (
     <div>
@@ -88,6 +112,7 @@ function ModeBreakdown({ byMode }: { byMode: RecommendationModeSummary[] }) {
                     </p>
                   )}
                   <RankChips r={r} />
+                  <SlipStats r={r} />
                 </>
               )}
             </div>

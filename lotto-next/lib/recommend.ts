@@ -1,4 +1,5 @@
 import type { GameInfo, AppearanceCount } from '@/types/lotto'
+import { TARGET5_GAMES, TARGET5_MAX_EXCLUDE } from '@/types/lotto'
 
 const ALL_NUMBERS = Array.from({ length: 45 }, (_, i) => i + 1)
 
@@ -104,4 +105,40 @@ export function recommendException(
   }
   fillRandom(selected, Array.from(available))
   return finalize(selected, exclude)
+}
+
+// "5등 노리기" — one 5-game slip (5,000원) laid out to maximise the chance that
+// AT LEAST ONE game matches 3+ numbers (5th prize, 5,000원).
+//
+// Why it works (exact enumeration over all C(45,6) = 8,145,060 draws):
+//   1 game                          P(≥1 game ranks) =  2.38%
+//   5 independent random games                        11.23%
+//   5 games sharing 3 numbers                          9.24%
+//   5 games with 30 DISTINCT numbers                  11.87%  ← this mode
+// The expected number of winning games is identical (0.119) for every layout —
+// a lotto draw is uniform, so no choice of numbers moves it. What the layout
+// DOES change is how much the games' win events overlap: disjoint games overlap
+// the least, so the union ("at least one hits") is the largest. 11.87% is the
+// maximum for 5 games. The 30 numbers themselves are drawn uniformly at random.
+//
+// Constraints: `include` numbers are spread round-robin across the games (so
+// they never collide); `exclude` may hold at most 15 numbers (30 must remain).
+export function recommendTarget5(c: RecommendConstraints = {}): number[][] {
+  const include = c.include ?? []
+  const exclude = c.exclude ?? []
+  if (exclude.length > TARGET5_MAX_EXCLUDE) {
+    throw new Error(`5등 노리기는 제외 번호를 최대 ${TARGET5_MAX_EXCLUDE}개까지 고를 수 있어요`)
+  }
+  const games: number[][] = Array.from({ length: TARGET5_GAMES }, () => [])
+  include.forEach((n, i) => games[i % TARGET5_GAMES].push(n))
+
+  const pool = shuffle(ALL_NUMBERS.filter(n => !exclude.includes(n) && !include.includes(n)))
+  for (const game of games) {
+    while (game.length < 6) {
+      const n = pool.pop()
+      if (n === undefined) throw new Error('Failed to build a 5-game slip')
+      game.push(n)
+    }
+  }
+  return games.map(g => g.sort((a, b) => a - b))
 }

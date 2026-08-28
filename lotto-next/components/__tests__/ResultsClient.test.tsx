@@ -66,7 +66,22 @@ describe('ResultsClient', () => {
     expect(screen.getByText('통계 기반')).toBeInTheDocument()
     expect(screen.getByText('10.0%')).toBeInTheDocument() // stats: 1 win / 10 graded
     expect(screen.getByText('0.0%')).toBeInTheDocument()  // exception: 0 / 8 graded
-    expect(screen.getByText('아직 번호 추천 없음')).toBeInTheDocument() // random: 0 picks
+    expect(screen.getAllByText('아직 번호 추천 없음')).toHaveLength(2) // random + target5: 0 picks
+    expect(screen.getByText('5등 노리기')).toBeInTheDocument()
+  })
+
+  it('shows slip-level hit rate for target5 once migration 008 populates it', async () => {
+    const data = summary({
+      byMode: [{
+        mode: 'target5', total: 50, graded_count: 50, rank1: 0, rank2: 0, rank3: 0, rank4: 0, rank5: 2,
+        slip_total: 10, slip_graded: 10, slip_hit: 1,
+      }],
+    })
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => data }) as unknown as typeof fetch
+    render(<ResultsClient />)
+    const slip = await screen.findByTestId('slip-stats')
+    expect(slip).toHaveTextContent('10.0%')
+    expect(slip).toHaveTextContent('1 / 10장에서 1게임 이상 당첨')
   })
 
   it('shows 집계 예정 for a mode with picks but none graded yet', async () => {

@@ -2,6 +2,7 @@ import {
   recommendRandom,
   recommendStats,
   recommendException,
+  recommendTarget5,
 } from '../recommend'
 import type { GameInfo, AppearanceCount } from '@/types/lotto'
 
@@ -128,4 +129,43 @@ describe('constraints', () => {
       assertValid(gen({}))
     })
   }
+})
+
+describe('recommendTarget5', () => {
+  it('returns 5 sorted games of 6 covering 30 distinct numbers', () => {
+    for (let i = 0; i < 30; i++) {
+      const games = recommendTarget5()
+      expect(games).toHaveLength(5)
+      games.forEach(assertValid)
+      // the whole point of the mode: no number appears on two games
+      expect(new Set(games.flat()).size).toBe(30)
+    }
+  })
+
+  it('spreads includes across games and never uses excludes', () => {
+    const include = [7, 13, 21, 33, 45]
+    const exclude = [1, 2, 3]
+    for (let i = 0; i < 30; i++) {
+      const games = recommendTarget5({ include, exclude })
+      games.forEach(assertValid)
+      expect(new Set(games.flat()).size).toBe(30)
+      // each include lands on exactly one game, one per game (round-robin)
+      include.forEach((n, idx) => expect(games[idx]).toContain(n))
+      expect(games.flat().some(n => exclude.includes(n))).toBe(false)
+    }
+  })
+
+  it('accepts exactly 15 excludes (30 numbers left) and 5 includes together', () => {
+    const exclude = Array.from({ length: 15 }, (_, i) => i + 1)   // 1..15
+    const include = [16, 17, 18, 19, 20]
+    const games = recommendTarget5({ include, exclude })
+    games.forEach(assertValid)
+    expect(new Set(games.flat()).size).toBe(30)
+    expect(games.flat().sort((a, b) => a - b)).toEqual(Array.from({ length: 30 }, (_, i) => i + 16))
+  })
+
+  it('rejects more than 15 excludes', () => {
+    const exclude = Array.from({ length: 16 }, (_, i) => i + 1)
+    expect(() => recommendTarget5({ exclude })).toThrow(/15/)
+  })
 })

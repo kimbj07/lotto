@@ -34,7 +34,10 @@ describe('recording (best-effort)', () => {
     expect(res.status).toBe(200)
     expect(body.numbers).toHaveLength(6)
     expect(insertMock).toHaveBeenCalledTimes(1)
-    const row = insertMock.mock.calls[0][0]
+    // Rows are inserted as a batch (one element for single-game modes).
+    const rows = insertMock.mock.calls[0][0]
+    expect(rows).toHaveLength(1)
+    const row = rows[0]
     expect(row.target_game_no).toBe(1231) // latest 1230 + 1
     expect(row.mode).toBe('random')
     expect(row.numbers).toEqual(body.numbers)
@@ -124,5 +127,47 @@ describe('GET /api/recommend include/exclude', () => {
     expect(body.numbers).toHaveLength(6)
     expect(body.numbers).toContain(7)
     expect(body.numbers.some((n: number) => [1, 2, 3].includes(n))).toBe(false)
+  })
+})
+
+describe('GET /api/recommend mode=target5', () => {
+  it('returns 5 disjoint games and records them under one slip_id', async () => {
+    const res = await GET(makeReq('mode=target5&include=7&exclude=1,2,3'))
+    const body = await res.json()
+    expect(res.status).toBe(200)
+    expect(body.games).toHaveLength(5)
+    expect(new Set(body.games.flat()).size).toBe(30)
+    expect(body.games[0]).toContain(7)
+    expect(body.games.flat()).not.toContain(1)
+    expect(typeof body.slipId).toBe('string')
+
+    expect(insertMock).toHaveBeenCalledTimes(1)
+    const rows = insertMock.mock.calls[0][0]
+    expect(rows).toHaveLength(5)
+    rows.forEach((row: { target_game_no: number; mode: string; slip_id: string; numbers: number[] }, i: number) => {
+      expect(row.target_game_no).toBe(1231)
+      expect(row.mode).toBe('target5')
+      expect(row.slip_id).toBe(body.slipId)
+      expect(row.numbers).toEqual(body.games[i])
+    })
+  })
+
+  it('caps excludes at 15 for target5', async () => {
+    const exclude = Array.from({ length: 16 }, (_, i) => i + 1).join(',')
+    const res = await GET(makeReq(`mode=target5&exclude=${exclude}`))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/at most 15 exclude/)
+  })
+
+  it('retries without slip_id when the column is missing (migration 008 not applied)', async () => {
+    insertMock
+      .mockResolvedValueOnce({ error: { message: 'column "slip_id" of relation "recommendations" does not exist' } })
+      .mockResolvedValueOnce({ error: null })
+    const res = await GET(makeReq('mode=target5'))
+    expect(res.status).toBe(200)
+    expect(insertMock).toHaveBeenCalledTimes(2)
+    const retryRows = insertMock.mock.calls[1][0]
+    expect(retryRows).toHaveLength(5)
+    retryRows.forEach((row: Record<string, unknown>) => expect(row).not.toHaveProperty('slip_id'))
   })
 })
