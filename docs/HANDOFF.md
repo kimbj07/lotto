@@ -32,7 +32,7 @@ with **two** promo banners (멍사주 + 이름 궁합), rendered from the `BANNE
 Recommendation modes (`lib/recommend.ts`, `/api/recommend?mode=`): `stats`, `exception`,
 `random` (one 6-number game each) and **`target5` = 5등 노리기** (PR #29): one 5-game slip
 whose 30 numbers never overlap. Exact enumeration over all C(45,6) draws gives
-P(≥1 of the 5 games matches 3+) = **11.87%** vs 11.23% for 5 independent random games
+P(≥1 of the 5 games matches 3+) = **11.87%** vs 11.36% for 5 independent random games
 (2.38% for one game); the expected number of winning games is identical for every layout
 (the draw is uniform), only the overlap between the games' win events changes. The UI says
 so plainly. The response shape differs: `{ games: number[][], slipId }` instead of

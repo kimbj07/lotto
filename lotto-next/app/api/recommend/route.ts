@@ -84,19 +84,25 @@ export async function GET(req: NextRequest) {
 
   const constraints = { include, exclude }
 
-  if (mode === 'random') {
-    const numbers = recommendRandom(constraints)
-    await recordRecommendation(numbers, 'random')
-    return NextResponse.json({ numbers })
-  }
+  // Generators can throw (e.g. an impossible constraint set); keep every path
+  // returning `{ error }` JSON rather than an unhandled 500 page.
+  try {
+    if (mode === 'random') {
+      const numbers = recommendRandom(constraints)
+      await recordRecommendation(numbers, 'random')
+      return NextResponse.json({ numbers })
+    }
 
-  if (mode === 'target5') {
-    // One slip = 5 games recorded under a shared slip_id, so /results can
-    // report the metric this mode optimises: "≥1 game on the slip ranked".
-    const games = recommendTarget5(constraints)
-    const slipId = randomUUID()
-    await recordRecommendations(games.map(numbers => ({ mode: 'target5', numbers, slip_id: slipId })))
-    return NextResponse.json({ games, slipId })
+    if (mode === 'target5') {
+      // One slip = 5 games recorded under a shared slip_id, so /results can
+      // report the metric this mode optimises: "≥1 game on the slip ranked".
+      const games = recommendTarget5(constraints)
+      const slipId = randomUUID()
+      await recordRecommendations(games.map(numbers => ({ mode: 'target5', numbers, slip_id: slipId })))
+      return NextResponse.json({ games, slipId })
+    }
+  } catch (e: unknown) {
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 })
   }
 
   const supabase = createServerClient()

@@ -132,5 +132,45 @@ describe('RecommenderClient', () => {
       const excludeSection = screen.getByTestId('exclude-grid')
       expect(within(excludeSection).getByText('0 / 15')).toBeInTheDocument()
     })
+
+    it('trims excess excludes on switch and tells the user how many were dropped', () => {
+      render(<RecommenderClient />)
+      const excludeSection = screen.getByTestId('exclude-grid')
+      fireEvent.click(within(excludeSection).getByRole('button', { name: /제외할 번호/ }))
+      for (let n = 1; n <= 17; n++) {
+        fireEvent.click(within(excludeSection).getByRole('button', { name: String(n) }))
+      }
+      expect(within(excludeSection).getByText('17 / 38')).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: '5등 노리기' }))
+      expect(within(excludeSection).getByText('15 / 15')).toBeInTheDocument()
+      expect(screen.getByRole('status')).toHaveTextContent('2개를 해제했어요')
+    })
+
+    it('re-clicking the active tab keeps the visible result', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ numbers: [1, 2, 3, 4, 5, 6] }) }) as unknown as typeof fetch
+      render(<RecommenderClient />)
+      fireEvent.click(screen.getByRole('button', { name: /번호 추천받기/ }))
+      expect(await screen.findByText(/당신의 행운 번호/)).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: '통계 기반' }))
+      expect(screen.getByText(/당신의 행운 번호/)).toBeInTheDocument()
+    })
+
+    it('locks the mode tabs while a draw is in flight so a stale result cannot surface', async () => {
+      let resolveFetch!: (v: unknown) => void
+      const pending = new Promise((r) => { resolveFetch = r })
+      global.fetch = jest.fn().mockReturnValue(pending) as unknown as typeof fetch
+      render(<RecommenderClient />)
+
+      fireEvent.click(screen.getByRole('button', { name: '5등 노리기' }))
+      fireEvent.click(screen.getByRole('button', { name: /5게임 추천받기/ }))
+      // in flight: every mode tab is disabled
+      expect(screen.getByRole('button', { name: '랜덤' })).toBeDisabled()
+      expect(screen.getByRole('button', { name: '5등 노리기' })).toBeDisabled()
+
+      resolveFetch({ ok: true, json: async () => ({ games: slip, slipId: 'x' }) })
+      expect(await screen.findByTestId('slip-result')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: '랜덤' })).toBeEnabled()
+    })
   })
 })

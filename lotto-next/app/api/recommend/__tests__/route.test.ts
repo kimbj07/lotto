@@ -159,9 +159,14 @@ describe('GET /api/recommend mode=target5', () => {
     expect((await res.json()).error).toMatch(/at most 15 exclude/)
   })
 
-  it('retries without slip_id when the column is missing (migration 008 not applied)', async () => {
+  // Both the PostgREST schema-cache error (what production actually emits,
+  // PGRST204) and the raw Postgres one must trigger the retry.
+  it.each([
+    ["Could not find the 'slip_id' column of 'recommendations' in the schema cache"],
+    ['column "slip_id" of relation "recommendations" does not exist'],
+  ])('retries without slip_id when the column is missing: %s', async (message) => {
     insertMock
-      .mockResolvedValueOnce({ error: { message: 'column "slip_id" of relation "recommendations" does not exist' } })
+      .mockResolvedValueOnce({ error: { message } })
       .mockResolvedValueOnce({ error: null })
     const res = await GET(makeReq('mode=target5'))
     expect(res.status).toBe(200)

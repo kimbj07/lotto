@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import BallSet from './BallSet'
 import DrawAnimation from './DrawAnimation'
@@ -19,7 +19,7 @@ const MODES: { key: RecommendMode; label: string; desc: string }[] = [
   { key: 'stats', label: '통계 기반', desc: '자주 나온 번호와 최근 보너스 번호를 피하고, 저빈도·중간 빈도 번호를 섞어 추천합니다.' },
   { key: 'exception', label: '제외 기반', desc: '통계 기반 규칙에 더해 8회차 전 당첨 번호에서 하나를 골라 변화를 줍니다.' },
   { key: 'random', label: '랜덤', desc: '1~45에서 완전 무작위로 6개를 뽑습니다.' },
-  { key: 'target5', label: '5등 노리기', desc: '5게임(5,000원) 한 장을 30개 번호가 서로 겹치지 않게 짭니다. 5게임 중 한 게임이라도 3개 이상 맞을 확률이 가장 높은 배치예요.' },
+  { key: 'target5', label: '5등 노리기', desc: '5게임(5,000원) 한 장을 30개 번호가 서로 겹치지 않게 짭니다. 5게임 중 한 게임이라도 3개 이상 맞을 확률이 가장 높은 배치예요. 포함 번호는 겹침이 없도록 게임마다 하나씩 나눠 들어가고, 제외 번호는 15개까지 고를 수 있어요.' },
 ]
 
 const DEFAULT_MAX_EXCLUDE = 38
@@ -74,6 +74,10 @@ export default function RecommenderClient() {
   const [games, setGames] = useState<number[][]>([])
   const [phase, setPhase] = useState<Phase>('idle')
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  // Monotonic request id: a response only lands if it's still the latest one
+  // (guards against a mode switch racing an in-flight draw).
+  const seqRef = useRef(0)
   const [includeOpen, setIncludeOpen] = useState(false)
   const [excludeOpen, setExcludeOpen] = useState(false)
   const [reduceMotion, setReduceMotion] = useState(false)
@@ -100,10 +104,17 @@ export default function RecommenderClient() {
   }
 
   function selectMode(next: RecommendMode) {
+    if (next === mode || drawing) return
     setMode(next)
-    // Drop excludes beyond the tighter slip cap so the request stays valid.
+    setNotice(null)
+    // Drop excludes beyond the tighter slip cap so the request stays valid —
+    // and say so, since the grid is sorted numerically and the user can't tell
+    // which picks were dropped otherwise.
     if (next === 'target5' && exclude.length > TARGET5_MAX_EXCLUDE) {
+      const dropped = exclude.length - TARGET5_MAX_EXCLUDE
       setExclude(exclude.slice(0, TARGET5_MAX_EXCLUDE))
+      setExcludeOpen(true)
+      setNotice(`5등 노리기는 제외 번호를 ${TARGET5_MAX_EXCLUDE}개까지 고를 수 있어서 ${dropped}개를 해제했어요.`)
     }
     // A result from another mode has a different shape; clear it.
     setPhase('idle')
@@ -111,7 +122,9 @@ export default function RecommenderClient() {
   }
 
   async function generate() {
+    const seq = ++seqRef.current
     setError(null)
+    setNotice(null)
     setPhase('drawing')
     const minSpin = new Promise<void>((r) => setTimeout(r, reduceMotion ? 0 : MIN_SPIN_MS))
     try {
@@ -121,11 +134,13 @@ export default function RecommenderClient() {
       // Fetch and the minimum spin run together; reveal once both are done.
       const [res] = await Promise.all([fetch(`/api/recommend?${params}`), minSpin])
       const data = await res.json()
+      if (seq !== seqRef.current) return // superseded by a newer draw
       if (!res.ok) throw new Error(data.error)
       if (isSlip) setGames(data.games)
       else setNumbers(data.numbers)
       setPhase('result')
     } catch (e: unknown) {
+      if (seq !== seqRef.current) return
       setError((e as Error).message)
       setPhase('idle')
     }
@@ -139,7 +154,9 @@ export default function RecommenderClient() {
             <button
               key={m.key}
               onClick={() => selectMode(m.key)}
-              className={`px-5 py-2.5 rounded-full text-sm transition ${
+              disabled={drawing}
+              aria-pressed={mode === m.key}
+              className={`px-5 py-2.5 rounded-full text-sm transition disabled:opacity-60 ${
                 mode === m.key
                   ? 'font-display bg-gradient-to-b from-brand to-brand-dark text-white shadow'
                   : 'text-gray-500 hover:bg-white'
@@ -194,6 +211,7 @@ export default function RecommenderClient() {
       </div>
 
       {error && <p className="mt-4 text-red-500 text-sm text-center">{error}</p>}
+      {notice && <p role="status" className="mt-4 text-amber-700 text-sm text-center">{notice}</p>}
 
       {drawing && (
         <div className="mt-8 rounded-3xl p-6 bg-gradient-to-br from-emerald-50 to-amber-50 border border-black/5 flex justify-center">
@@ -229,7 +247,7 @@ export default function RecommenderClient() {
             <p>
               30개 번호가 한 번도 겹치지 않아, <b className="text-gray-700">5게임 중 1게임 이상 5등(3개 일치)</b> 확률이{' '}
               <b className="font-display text-brand-dark">11.9%</b>로 5게임 배치 중 가장 높아요.
-              (랜덤 5게임 11.2% · 1게임 2.4%)
+              (랜덤 5게임 11.4% · 1게임 2.4%)
             </p>
             <p className="mt-1">
               로또는 순수 무작위라 번호 자체로 확률을 올릴 순 없어요 — 겹치지 않는 배치만이 &ldquo;한 번이라도 맞을&rdquo; 확률을 올립니다.

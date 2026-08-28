@@ -112,7 +112,7 @@ export function recommendException(
 //
 // Why it works (exact enumeration over all C(45,6) = 8,145,060 draws):
 //   1 game                          P(≥1 game ranks) =  2.38%
-//   5 independent random games                        11.23%
+//   5 independent random games                        11.36%  (= 1 − (1 − 0.0238)^5)
 //   5 games sharing 3 numbers                          9.24%
 //   5 games with 30 DISTINCT numbers                  11.87%  ← this mode
 // The expected number of winning games is identical (0.119) for every layout —
