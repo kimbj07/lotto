@@ -26,10 +26,16 @@ describe('PatternCheckClient', () => {
     // the section renders immediately; wait for the fetched report to land
     expect(await screen.findByText(/1회 ~ 1238회/)).toBeInTheDocument()
     const section = screen.getByTestId('pattern-check')
-    expect(within(section).getByText('지난 회차 보너스 번호가 이번 회차에 나온다')).toBeInTheDocument()
-    expect(within(section).getByText('13.66%')).toBeInTheDocument()
-    expect(within(section).getAllByText('차이 없음')).toHaveLength(4)
-    expect(within(section).getByText('더 나옴')).toBeInTheDocument()
+    // sm+: the table; <sm: stacked cards. jsdom renders both (no CSS), so
+    // assert each block separately.
+    const table = within(section).getByRole('table')
+    expect(within(table).getByText('지난 회차 보너스 번호가 이번 회차에 나온다')).toBeInTheDocument()
+    expect(within(table).getByText('13.66%')).toBeInTheDocument()
+    expect(within(table).getAllByText('차이 없음')).toHaveLength(4)
+    expect(within(table).getByText('더 나옴')).toBeInTheDocument()
+    const cards = within(section).getByTestId('pattern-cards')
+    expect(within(cards).getAllByRole('listitem')).toHaveLength(5)
+    expect(within(cards).getAllByText('차이 없음')).toHaveLength(4)
     expect(within(section).getByText('균등')).toBeInTheDocument()
     expect(within(section).getByText('-0.314')).toBeInTheDocument()
     expect(within(section).getByText(/활용할 수 있는 패턴은 없습니다/)).toBeInTheDocument()

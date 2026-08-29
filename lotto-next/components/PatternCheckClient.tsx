@@ -62,7 +62,29 @@ export default function PatternCheckClient() {
             {`${data.fromGameNo}회 ~ ${data.toGameNo}회, ${data.draws.toLocaleString()}회차 · 매주 추첨 후 자동 재계산`}
           </p>
 
-          <div className="overflow-x-auto -mx-6 sm:-mx-8 px-6 sm:px-8">
+          {/* Mobile: one card per hypothesis. A 520px table inside a 360px card
+              scrolls the 판정 column — the one answer the reader wants — off
+              screen; stacked cards keep claim and verdict together. */}
+          <ul className="sm:hidden space-y-2" data-testid="pattern-cards">
+            {data.tests.map((t) => (
+              <li key={t.key} className="rounded-2xl border border-black/5 bg-emerald-50/40 p-4 space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm text-gray-700 flex-1">{LABELS[t.key] ?? t.key}</p>
+                  <Verdict t={t} />
+                </div>
+                <div className="flex items-baseline justify-between text-sm">
+                  <span className="text-gray-700">
+                    실제 <b className="font-display text-gray-900">{pct(t.observed)}</b>
+                    <span className="text-[11px] text-gray-400"> ({t.hits.toLocaleString()}/{t.trials.toLocaleString()})</span>
+                  </span>
+                  <span className="text-gray-400">기대 {pct(t.expected)}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          {/* sm and up: the table fits comfortably. */}
+          <div className="hidden sm:block overflow-x-auto -mx-8 px-8">
             <table className="w-full text-sm min-w-[520px]">
               <thead>
                 <tr className="bg-emerald-50/60 text-gray-500">
