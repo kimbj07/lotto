@@ -50,6 +50,42 @@ export type RecommendMode = 'stats' | 'exception' | 'random' | 'target5'
 
 export type SortOrder = 'ASC' | 'DESC'
 
+// /api/stats/patterns — folk-hypothesis checks against the full draw history
+// (see lib/patterns.ts). `verdict` is 'none' when |z| < 2.
+export interface PatternTest {
+  key: string
+  hits: number
+  trials: number
+  observed: number   // hits / trials
+  expected: number   // base rate 6/45
+  z: number
+  verdict: 'none' | 'more' | 'less'
+}
+
+export interface PatternReport {
+  draws: number
+  fromGameNo: number
+  toGameNo: number
+  baseRate: number
+  zThreshold: number // |z| below this reads as 'none' (2.5: ~7 statistics shown at once)
+  tests: PatternTest[]
+  uniformity: {
+    chi2: number
+    df: number
+    cutoff95: number
+    expectedPerNumber: number
+    sd: number
+    uniform: boolean
+  }
+  mostFrequent: { number: number; count: number }[]
+  leastFrequent: { number: number; count: number }[]
+  // First-half vs second-half correlation of per-number counts, its z under
+  // independence (sd ≈ 1/√43), and the verdict on the shared threshold.
+  splitHalfR: number
+  splitHalfZ: number
+  persistence: 'none' | 'more' | 'less'
+}
+
 export type AppearanceSortBy = 'winCount' | 'bonusCount' | 'sumCount' | 'number'
 
 export interface RecommendationRoundSummary {

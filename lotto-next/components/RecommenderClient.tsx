@@ -245,7 +245,7 @@ export default function RecommenderClient() {
                 <span className="rounded-full bg-gold/20 text-gold-dark font-display px-3 py-1 text-sm">이 배치 {pct(cfg.odds.slip)}</span>
               </div>
               <p className="mt-3 text-sm leading-relaxed text-gray-600">
-                {cfg.games * 6}개 번호를 게임마다 겹치지 않게 나눠서, {cfg.games}게임 중 하나라도 5등(3개 일치)에 당첨될 확률을 가장 높였어요.
+                {cfg.games * 6}개 번호를 게임마다 겹치지 않게 나눠서, {cfg.games}게임 중 하나라도 5등 이상(3개 이상 일치)에 당첨될 확률을 가장 높였어요.
                 번호를 잘 골라서가 아니라 겹치지 않는 배치 덕분이에요 — 로또는 완전 무작위라 번호로 확률을 바꿀 순 없어요.
               </p>
             </div>

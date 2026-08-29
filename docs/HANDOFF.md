@@ -29,6 +29,12 @@ Pages: `/` (number recommender + include/exclude pickers + draw animation + Kaka
 with **two** promo banners (멍사주 + 이름 궁합), rendered from the `BANNERS` array in
 `components/PromoBanner.tsx`.
 
+`/stats` also carries a **패턴 검증** section (`components/PatternCheckClient.tsx`,
+`/api/stats/patterns`, `lib/patterns.ts`): the folk hypotheses (last bonus repeats, hot/cold
+numbers, recent hot numbers) tested on every draw with a z-score vs the 6/45 base rate, plus a
+chi-square uniformity check and split-half persistence. It exists to show, honestly, that there
+is no exploitable pattern. Recomputed after each weekly cron (cache eviction).
+
 Recommendation modes (`lib/recommend.ts`, `/api/recommend?mode=`): `stats`, `exception`,
 `random` (one 6-number game each) and **`target5` = 5등 노리기** (PR #29): one 5-game slip
 whose 30 numbers never overlap. Exact enumeration over all C(45,6) draws gives
