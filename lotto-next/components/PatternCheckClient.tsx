@@ -145,11 +145,18 @@ export default function PatternCheckClient() {
               <p className="font-medium text-gray-700 mb-1">앞에서 잘 나온 번호가 뒤에서도 잘 나오나?</p>
               <p className="text-gray-600">
                 역대 회차를 절반으로 나눠, 앞 절반의 인기 번호가 뒤 절반에서도 인기인지 봅니다 →{' '}
-                <b className="text-brand-dark">{Math.abs(data.splitHalfR) < 0.5 ? '이어지지 않음' : '이어짐'}</b>
-                <span className="text-gray-400"> (상관 r {data.splitHalfR}, 이어지면 1에 가까움)</span>
+                <b className={data.persistence === 'none' ? 'text-brand-dark' : 'text-amber-700'}>
+                  {data.persistence === 'none' ? '이어지지 않음' : data.persistence === 'more' ? '이어짐' : '오히려 반대'}
+                </b>
+                <span className="text-gray-400"> (상관 r {data.splitHalfR}, z {data.splitHalfZ})</span>
               </p>
             </div>
           </div>
+
+          <p className="text-xs text-gray-400">
+            {`항목 7개를 한꺼번에 보므로 "우연 범위"의 기준은 보수적으로 잡았습니다(${data.zThreshold}σ). ` +
+              '그래도 순전히 우연으로 한 항목이 범위를 벗어나는 주가 1년에 몇 번은 있을 수 있어요.'}
+          </p>
 
           <p className="text-sm text-gray-700 rounded-2xl bg-amber-50 border border-amber-100 px-4 py-3">
             <b className="text-gray-900">결론:</b> {data.tests.every(t => t.verdict === 'none') && data.uniformity.uniform

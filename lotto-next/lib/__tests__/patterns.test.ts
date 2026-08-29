@@ -1,4 +1,4 @@
-import { analyzePatterns, BASE_RATE, type DrawBalls } from '../patterns'
+import { analyzePatterns, BASE_RATE, CHI2_CUTOFF_95, Z_THRESHOLD, type DrawBalls } from '../patterns'
 
 // Deterministic PRNG so the "uniform random" fixture is reproducible.
 function mulberry32(seed: number) {
@@ -40,10 +40,29 @@ describe('analyzePatterns', () => {
     }
     expect(r.uniformity.df).toBe(44)
     expect(r.uniformity.uniform).toBe(true)
+    expect(r.uniformity.cutoff95).toBe(CHI2_CUTOFF_95)
+    expect(CHI2_CUTOFF_95).toBeCloseTo(53.6, 1) // 60.48 × 39/44: without-replacement correction
+    expect(r.zThreshold).toBe(Z_THRESHOLD)
+    expect(r.persistence).toBe('none')
+    expect(Math.abs(r.splitHalfZ)).toBeLessThan(4)
     expect(r.mostFrequent).toHaveLength(5)
     expect(r.leastFrequent).toHaveLength(5)
     expect(r.mostFrequent[0].count).toBeGreaterThanOrEqual(r.leastFrequent[0].count)
     expect(Math.abs(r.splitHalfR)).toBeLessThan(0.6)
+  })
+
+  it('uses the hypergeometric variance: K checks per draw shrink the SE by √((45−K)/44)', () => {
+    // Build a history where exactly `hits` of the trials succeed and compare
+    // the reported z with the closed form. Use the bonus test (K=1, factor 1)
+    // and the main-repeat test (K=6, factor 39/44) on the same draws.
+    const draws = uniformDraws(400, 11)
+    const r = analyzePatterns(draws)
+    const t = Object.fromEntries(r.tests.map(x => [x.key, x]))
+    const closedForm = (hits: number, trials: number, k: number) =>
+      (hits - trials * BASE_RATE) / Math.sqrt(trials * BASE_RATE * (1 - BASE_RATE) * (45 - k) / 44)
+    expect(t.prev_bonus_repeat.z).toBeCloseTo(closedForm(t.prev_bonus_repeat.hits, t.prev_bonus_repeat.trials, 1), 2)
+    expect(t.prev_main_repeat.z).toBeCloseTo(closedForm(t.prev_main_repeat.hits, t.prev_main_repeat.trials, 6), 2)
+    expect(t.recent_hot.z).toBeCloseTo(closedForm(t.recent_hot.hits, t.recent_hot.trials, 10), 2)
   })
 
   it('trial counts follow the definitions', () => {
@@ -92,6 +111,8 @@ describe('analyzePatterns', () => {
     expect(empty.draws).toBe(0)
     expect(empty.tests.every(t => t.trials === 0 && t.z === 0 && t.verdict === 'none')).toBe(true)
     expect(Number.isFinite(empty.uniformity.chi2)).toBe(true)
+    expect(empty.splitHalfZ).toBe(0)
+    expect(empty.persistence).toBe('none')
 
     const one = analyzePatterns(uniformDraws(1))
     expect(one.tests.every(t => t.trials === 0)).toBe(true)

@@ -7,8 +7,16 @@ import type { PatternReport, PatternTest } from '@/types/lotto'
 //
 // Base rate: any specific number is one of the 6 drawn with p = 6/45 ≈ 13.33%.
 // A hypothesis "has a pattern" only if its observed hit rate departs from
-// that by more than sampling noise — we report a z-score and call |z| < 2
-// "no difference" (two-sided 95%).
+// that by more than sampling noise — we report a z-score.
+//
+// Statistics notes (methodology review, 2026-08-29):
+// - Within one draw the K numbers we check are drawn WITHOUT replacement, so
+//   the K trials are negatively correlated (hypergeometric, not iid Bernoulli)
+//   and the true variance is (45 − K)/44 of the naive binomial one. Using the
+//   naive SE understates |z| by 5–12%; the correction below fixes that.
+// - The page shows ~7 statistics at once (5 hypotheses + χ² + r), so at a
+//   naive 2σ cutoff something would "light up" by chance ~25% of weeks. We
+//   use 2.5σ (two-sided p ≈ 0.012 each, ≈ 8% family-wise) everywhere.
 
 export interface DrawBalls {
   game_no: number
@@ -17,23 +25,36 @@ export interface DrawBalls {
 }
 
 export const BASE_RATE = 6 / 45
-export const Z_THRESHOLD = 2
+export const Z_THRESHOLD = 2.5
 // Rolling window for the "recently hot" hypothesis and the top-K sizes.
 export const RECENT_WINDOW = 20
 export const HOT_K = 5
 export const RECENT_HOT_K = 10
 // Cumulative hot/cold tests need some history before ranking means anything.
 const WARMUP_DRAWS = 100
-// Chi-square 95% critical value for df = 44 (45 numbers − 1).
-const CHI2_DF44_95 = 60.48
+// Chi-square 95% critical value for df = 44 (45 numbers − 1) assumes counts
+// from WITH-replacement sampling. Each draw takes 6 of 45 without
+// replacement, which scales the statistic by (45 − 6)/44, so the true 95th
+// percentile is 60.48 × 39/44 ≈ 53.6 (confirmed by Monte Carlo).
+export const CHI2_CUTOFF_95 = Number((60.48 * (45 - 6) / 44).toFixed(1))
 
-function zScore(hits: number, trials: number): number {
-  if (trials === 0) return 0
-  return (hits / trials - BASE_RATE) / Math.sqrt((BASE_RATE * (1 - BASE_RATE)) / trials)
+// Finite-population correction for K checks per draw (see notes above).
+function hypergeometricFactor(perDraw: number): number {
+  return (45 - perDraw) / 44
 }
 
-function makeTest(key: string, hits: number, trials: number): PatternTest {
-  const z = zScore(hits, trials)
+function zScore(hits: number, trials: number, perDraw: number): number {
+  if (trials === 0) return 0
+  const variance = trials * BASE_RATE * (1 - BASE_RATE) * hypergeometricFactor(perDraw)
+  return (hits - trials * BASE_RATE) / Math.sqrt(variance)
+}
+
+function verdictOf(z: number): PatternTest['verdict'] {
+  return Math.abs(z) < Z_THRESHOLD ? 'none' : z > 0 ? 'more' : 'less'
+}
+
+function makeTest(key: string, hits: number, trials: number, perDraw: number): PatternTest {
+  const z = zScore(hits, trials, perDraw)
   return {
     key,
     hits,
@@ -41,7 +62,7 @@ function makeTest(key: string, hits: number, trials: number): PatternTest {
     observed: trials ? hits / trials : 0,
     expected: BASE_RATE,
     z: Number(z.toFixed(2)),
-    verdict: Math.abs(z) < Z_THRESHOLD ? 'none' : z > 0 ? 'more' : 'less',
+    verdict: verdictOf(z),
   }
 }
 
@@ -114,35 +135,42 @@ export function analyzePatterns(input: DrawBalls[]): PatternReport {
   const ranked = rankByCount(cum)
   const freq = (x: number) => ({ number: x, count: cum[x] })
 
-  // [6] split-half persistence of per-number frequency
+  // [6] split-half persistence of per-number frequency. Under independence r
+  // has mean 0 and sd ≈ 1/√(45 − 2) ≈ 0.15 (Monte-Carlo confirmed), so it
+  // is judged on the same z scale as the hypotheses — a fixed |r| cutoff
+  // would either never fire or fire on noise.
   const half = Math.floor(n / 2)
   const c1 = new Array<number>(46).fill(0), c2 = new Array<number>(46).fill(0)
   draws.slice(0, half).forEach(d => d.balls.forEach(b => c1[b]++))
   draws.slice(half).forEach(d => d.balls.forEach(b => c2[b]++))
   const splitHalfR = n >= 2 ? pearson(c1.slice(1), c2.slice(1)) : 0
+  const splitHalfZ = splitHalfR * Math.sqrt(45 - 2)
 
   return {
     draws: n,
     fromGameNo: n ? draws[0].game_no : 0,
     toGameNo: n ? draws[n - 1].game_no : 0,
     baseRate: BASE_RATE,
+    zThreshold: Z_THRESHOLD,
     tests: [
-      makeTest('prev_bonus_repeat', bonusHits, Math.max(0, n - 1)),
-      makeTest('prev_main_repeat', mainHits, mainTrials),
-      makeTest('cumulative_hot', hotHits, hotTrials),
-      makeTest('cumulative_cold', coldHits, coldTrials),
-      makeTest('recent_hot', recentHits, recentTrials),
+      makeTest('prev_bonus_repeat', bonusHits, Math.max(0, n - 1), 1),
+      makeTest('prev_main_repeat', mainHits, mainTrials, 6),
+      makeTest('cumulative_hot', hotHits, hotTrials, HOT_K),
+      makeTest('cumulative_cold', coldHits, coldTrials, HOT_K),
+      makeTest('recent_hot', recentHits, recentTrials, RECENT_HOT_K),
     ],
     uniformity: {
       chi2: Number(chi2.toFixed(1)),
       df: 44,
-      cutoff95: CHI2_DF44_95,
+      cutoff95: CHI2_CUTOFF_95,
       expectedPerNumber: Number(expectedPerNumber.toFixed(1)),
       sd: Number(Math.sqrt(expectedPerNumber * (1 - 1 / 45)).toFixed(1)),
-      uniform: chi2 < CHI2_DF44_95,
+      uniform: chi2 < CHI2_CUTOFF_95,
     },
     mostFrequent: ranked.slice(0, 5).map(freq),
     leastFrequent: ranked.slice(-5).reverse().map(freq),
     splitHalfR: Number(splitHalfR.toFixed(3)),
+    splitHalfZ: Number(splitHalfZ.toFixed(2)),
+    persistence: verdictOf(splitHalfZ),
   }
 }

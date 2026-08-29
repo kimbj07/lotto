@@ -67,6 +67,7 @@ export interface PatternReport {
   fromGameNo: number
   toGameNo: number
   baseRate: number
+  zThreshold: number // |z| below this reads as 'none' (2.5: ~7 statistics shown at once)
   tests: PatternTest[]
   uniformity: {
     chi2: number
@@ -78,7 +79,11 @@ export interface PatternReport {
   }
   mostFrequent: { number: number; count: number }[]
   leastFrequent: { number: number; count: number }[]
+  // First-half vs second-half correlation of per-number counts, its z under
+  // independence (sd ≈ 1/√43), and the verdict on the shared threshold.
   splitHalfR: number
+  splitHalfZ: number
+  persistence: 'none' | 'more' | 'less'
 }
 
 export type AppearanceSortBy = 'winCount' | 'bonusCount' | 'sumCount' | 'number'
