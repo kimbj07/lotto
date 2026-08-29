@@ -1,5 +1,5 @@
 import type { GameInfo, AppearanceCount } from '@/types/lotto'
-import { TARGET5_GAMES, TARGET5_MAX_EXCLUDE } from '@/types/lotto'
+import { TARGET5_GAMES, TARGET5_MAX_EXCLUDE } from '@/lib/recommendModes'
 
 const ALL_NUMBERS = Array.from({ length: 45 }, (_, i) => i + 1)
 

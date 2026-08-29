@@ -44,12 +44,9 @@ export interface MyRankInGame {
   rank: 1 | 2 | 3 | 4 | 5 | null
 }
 
+// Per-mode config (labels, game counts, exclude caps, odds) lives in
+// lib/recommendModes.ts — this file stays type-only.
 export type RecommendMode = 'stats' | 'exception' | 'random' | 'target5'
-
-// Number of games on one target5 slip (a Korean lotto slip holds 5 games = 5,000원).
-export const TARGET5_GAMES = 5
-// target5 needs 30 distinct numbers, so at most 45 - 30 = 15 may be excluded.
-export const TARGET5_MAX_EXCLUDE = 45 - 6 * TARGET5_GAMES
 
 export type SortOrder = 'ASC' | 'DESC'
 

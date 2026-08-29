@@ -7,10 +7,15 @@ import {
   recommendRandom,
   recommendTarget5,
 } from '@/lib/recommend'
+import { isRecommendMode, modeConfig, MODE_KEYS } from '@/lib/recommendModes'
 import type { GameInfo, AppearanceCount } from '@/types/lotto'
-import { TARGET5_MAX_EXCLUDE } from '@/types/lotto'
 
-const MODES = ['stats', 'exception', 'random', 'target5'] as const
+// Response contract (all modes): `games: number[][]` — one entry per game.
+// `numbers` mirrors games[0] for single-game modes only (deprecated; kept so
+// older clients keep working — remove after one release).
+function respond(games: number[][]) {
+  return NextResponse.json(games.length === 1 ? { games, numbers: games[0] } : { games })
+}
 
 interface RecommendationRow {
   target_game_no: number
@@ -18,6 +23,11 @@ interface RecommendationRow {
   numbers: number[]
   slip_id?: string
 }
+
+// Set once per warm instance when the DB reports that `slip_id` doesn't exist
+// (migration 008 not applied yet), so the doomed insert isn't retried on
+// every request. Resets on cold start, which is when the column may exist.
+let slipColumnMissing = false
 
 // Best-effort recording of generated recommendations for later grading.
 // Uses the service_role client (anon is read-only). Failures are swallowed so
@@ -35,14 +45,16 @@ async function recordRecommendations(rows: Omit<RecommendationRow, 'target_game_
         .single()
       target = ((latestRow?.game_no as number | undefined) ?? 0) + 1
     }
-    const full: RecommendationRow[] = rows.map(r => ({ ...r, target_game_no: target as number }))
+    const withoutSlip = (r: RecommendationRow) => { const { slip_id: _omit, ...rest } = r; return rest }
+    let full: RecommendationRow[] = rows.map(r => ({ ...r, target_game_no: target as number }))
+    if (slipColumnMissing) full = full.map(withoutSlip)
+
     let { error } = await admin.from('recommendations').insert(full)
-    // Migration 008 (slip_id column) not applied yet: keep per-game recording
-    // alive by retrying without the slip column.
+    // Matches both PostgREST's schema-cache message (PGRST204, what production
+    // emits) and the raw Postgres "column ... does not exist".
     if (error && full.some(r => r.slip_id !== undefined) && /slip_id/.test(error.message)) {
-      ;({ error } = await admin
-        .from('recommendations')
-        .insert(full.map(({ slip_id: _omit, ...rest }) => rest)))
+      slipColumnMissing = true
+      ;({ error } = await admin.from('recommendations').insert(full.map(withoutSlip)))
     }
     if (error) console.error('recordRecommendation failed:', error.message)
   } catch (e) {
@@ -54,16 +66,24 @@ async function recordRecommendation(numbers: number[], mode: string, targetGameN
   await recordRecommendations([{ mode, numbers }], targetGameNo)
 }
 
+// Strict integer parse: "7abc" and "7.5" are rejected (NaN), not truncated.
+function parseNums(p: string | null): number[] {
+  if (!p) return []
+  return p.split(',').map(s => {
+    const n = Number(s.trim())
+    return Number.isInteger(n) ? n : NaN
+  })
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
   const mode = searchParams.get('mode') ?? 'stats'
 
-  if (!(MODES as readonly string[]).includes(mode)) {
-    return NextResponse.json({ error: 'mode must be stats, exception, random, or target5' }, { status: 400 })
+  if (!isRecommendMode(mode)) {
+    return NextResponse.json({ error: `mode must be one of ${MODE_KEYS.join(', ')}` }, { status: 400 })
   }
+  const cfg = modeConfig(mode)
 
-  const parseNums = (p: string | null): number[] =>
-    p ? p.split(',').map(s => parseInt(s, 10)) : []
   const include = parseNums(searchParams.get('include'))
   const exclude = parseNums(searchParams.get('exclude'))
 
@@ -75,8 +95,7 @@ export async function GET(req: NextRequest) {
   }
   const incErr = badSet(include, 5, 'include')
   if (incErr) return NextResponse.json({ error: incErr }, { status: 400 })
-  // target5 lays out 30 distinct numbers, so only 15 may be excluded.
-  const excErr = badSet(exclude, mode === 'target5' ? TARGET5_MAX_EXCLUDE : 38, 'exclude')
+  const excErr = badSet(exclude, cfg.maxExclude, 'exclude')
   if (excErr) return NextResponse.json({ error: excErr }, { status: 400 })
   if (include.some(n => exclude.includes(n))) {
     return NextResponse.json({ error: 'include and exclude must be disjoint' }, { status: 400 })
@@ -90,7 +109,7 @@ export async function GET(req: NextRequest) {
     if (mode === 'random') {
       const numbers = recommendRandom(constraints)
       await recordRecommendation(numbers, 'random')
-      return NextResponse.json({ numbers })
+      return respond([numbers])
     }
 
     if (mode === 'target5') {
@@ -99,7 +118,7 @@ export async function GET(req: NextRequest) {
       const games = recommendTarget5(constraints)
       const slipId = randomUUID()
       await recordRecommendations(games.map(numbers => ({ mode: 'target5', numbers, slip_id: slipId })))
-      return NextResponse.json({ games, slipId })
+      return respond(games)
     }
   } catch (e: unknown) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 })
@@ -137,7 +156,7 @@ export async function GET(req: NextRequest) {
       ? recommendException(games, counts, constraints)
       : recommendStats(games, counts, constraints)
     await recordRecommendation(numbers, mode, latestNo + 1)
-    return NextResponse.json({ numbers })
+    return respond([numbers])
   } catch (e: unknown) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 })
   }

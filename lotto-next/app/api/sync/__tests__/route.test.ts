@@ -45,6 +45,8 @@ function fullGame(n: number) {
   }
 }
 
+const realSetTimeout = global.setTimeout
+
 beforeEach(() => {
   process.env.CRON_SECRET = 'test-secret'
   ;(clearCache as jest.Mock).mockClear()
@@ -54,10 +56,15 @@ beforeEach(() => {
   fetchLatest.mockReset()
   fetchGame.mockReset()
   // The sync loop pauses 300ms between draws; run it synchronously in tests.
-  jest.spyOn(global, 'setTimeout').mockImplementation(((fn: () => void) => { fn(); return 0 }) as never)
+  // Plain assignment, not jest.spyOn: after importing next/server, setTimeout
+  // is no longer an own property of `global`, so spyOn's restore *deletes* it
+  // and every test after the first failed with "Property setTimeout does not
+  // exist" (these 3 tests had never actually run since PR #7).
+  global.setTimeout = ((fn: () => void) => { fn(); return 0 }) as never
 })
 
 afterEach(() => {
+  global.setTimeout = realSetTimeout
   jest.restoreAllMocks()
 })
 

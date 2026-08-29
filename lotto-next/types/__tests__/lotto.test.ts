@@ -19,7 +19,7 @@ describe('lotto types', () => {
   })
 
   it('RecommendMode accepts only valid values', () => {
-    const modes: RecommendMode[] = ['stats', 'exception', 'random']
-    expect(modes).toHaveLength(3)
+    const modes: RecommendMode[] = ['stats', 'exception', 'random', 'target5']
+    expect(modes).toHaveLength(4)
   })
 })

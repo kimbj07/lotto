@@ -35,8 +35,10 @@ whose 30 numbers never overlap. Exact enumeration over all C(45,6) draws gives
 P(≥1 of the 5 games matches 3+) = **11.87%** vs 11.36% for 5 independent random games
 (2.38% for one game); the expected number of winning games is identical for every layout
 (the draw is uniform), only the overlap between the games' win events changes. The UI says
-so plainly. The response shape differs: `{ games: number[][], slipId }` instead of
-`{ numbers }`, and the 5 games are recorded as 5 `recommendations` rows sharing `slip_id`.
+so plainly. Every mode responds with `{ games: number[][] }` (single-game modes also
+mirror `numbers = games[0]`, deprecated); the 5 games are recorded as 5 `recommendations`
+rows sharing a `slip_id`. Mode labels/descriptions/game counts/exclude caps/odds live in
+one table, `lib/recommendModes.ts` — add a mode there, not in the components.
 
 ---
 
@@ -70,7 +72,8 @@ dashboard access on the new PC, sign in with the same accounts that own those pr
 ```bash
 PORT=3100 npm run dev      # or: npm run start after npm run build
 npm test                   # Jest + Testing Library
-npm run build              # compile + type-check + lint
+npm run build              # compile + type-check (NO lint: ESLint is not configured yet —
+                           # `npm run lint` drops into next's interactive setup prompt)
 ```
 
 ---
@@ -92,9 +95,13 @@ npm run build              # compile + type-check + lint
   and **share the production Supabase** — seeded/DDL changes there affect prod too.
 - **Supabase migrations are DDL** and must be applied **by a human in the Supabase SQL
   editor** (the service_role REST key can't run DDL). Migrations `001–007` are applied.
-  **`008_target5_slips.sql` (PR #29) must be applied after merging** — until then the app
-  still works, but target5 slips are recorded without `slip_id` (per-game stats only) and
-  `/results` shows no slip-level line. New migrations live in `supabase/migrations/`.
+  **`008_target5_slips.sql` (PR #29): apply it BEFORE merging** — it is purely additive
+  (nullable column + defaulted columns), so old code is unaffected, and applying first
+  means every target5 slip gets a `slip_id`. Then run `select refresh_recommendation_summary();`
+  once so the slip columns are populated before the next Sunday cron. If the code ships
+  first anyway the app still works, but slips recorded in that window are stored without
+  `slip_id` and are permanently excluded from the slip-level stats. New migrations live in
+  `supabase/migrations/`.
 
 ---
 

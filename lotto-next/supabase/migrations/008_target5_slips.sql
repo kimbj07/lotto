@@ -3,9 +3,13 @@
 -- five `recommendations` rows sharing a slip_id. Its success metric is
 -- slip-level ("did at least one of the 5 games rank?"), so the per-mode summary
 -- gains slip columns and refresh_recommendation_summary() fills them.
--- Apply by hand in the Supabase SQL editor (DDL), like 001–007.
--- Until it is applied the app still works: /api/recommend falls back to
--- recording target5 games without a slip_id (per-game stats only).
+-- Apply by hand in the Supabase SQL editor (DDL), like 001–007. Purely
+-- additive (nullable column + defaulted columns), so apply it BEFORE merging
+-- the target5 code; afterwards run `select refresh_recommendation_summary();`
+-- once so the slip columns are populated before the next Sunday cron.
+-- If the code ships first anyway, the app still works: /api/recommend falls
+-- back to recording target5 games without a slip_id (per-game stats only;
+-- those rows are never attributed to a slip).
 
 ALTER TABLE recommendations ADD COLUMN IF NOT EXISTS slip_id UUID;
 CREATE INDEX IF NOT EXISTS recommendations_slip_idx ON recommendations (slip_id)
@@ -79,3 +83,10 @@ BEGIN
   GROUP BY r.mode;
 END;
 $$;
+
+-- 005 granted EXECUTE on this function to anon/authenticated, contradicting
+-- its own least-privilege note; nothing calls it with the anon key (the cron
+-- uses service_role) and CREATE OR REPLACE preserves the old ACL, so revoke
+-- it here. (Not exploitable before this either: SECURITY INVOKER, so anon
+-- died on the first DELETE's permission check.)
+REVOKE EXECUTE ON FUNCTION refresh_recommendation_summary() FROM anon, authenticated;

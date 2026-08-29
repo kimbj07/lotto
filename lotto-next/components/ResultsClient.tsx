@@ -6,16 +6,16 @@ import type {
   RecommendationRoundSummary,
   RecommendationModeSummary,
 } from '@/types/lotto'
+import { MODE_CONFIGS, isRecommendMode, modeConfig } from '@/lib/recommendModes'
 
 const RANKS = [1, 2, 3, 4, 5] as const
 
 // Fixed display order + Korean labels for the per-mode breakdown.
-const MODE_LABELS: { key: string; label: string }[] = [
-  { key: 'stats', label: '통계 기반' },
-  { key: 'exception', label: '제외 기반' },
-  { key: 'random', label: '랜덤' },
-  { key: 'target5', label: '5등 노리기' },
-]
+const MODE_LABELS = MODE_CONFIGS.map(m => ({ key: m.key as string, label: m.label }))
+
+function gamesPerSlip(mode: string): number {
+  return isRecommendMode(mode) ? modeConfig(mode).games : 1
+}
 
 function wins(r: { rank1: number; rank2: number; rank3: number; rank4: number; rank5: number }) {
   return r.rank1 + r.rank2 + r.rank3 + r.rank4 + r.rank5
@@ -64,12 +64,12 @@ function SlipStats({ r }: { r: RecommendationModeSummary }) {
   const graded = r.slip_graded ?? 0
   const hit = r.slip_hit ?? 0
   return (
-    <p data-testid="slip-stats" className="text-sm text-gray-500">
-      5게임 한 장 기준:{' '}
+    <p data-testid="slip-stats" className="text-sm text-gray-600">
+      한 장({gamesPerSlip(r.mode)}게임) 적중률{' '}
       {graded > 0 ? (
         <>
           <b className="font-display text-brand-dark">{((hit / graded) * 100).toFixed(1)}%</b>
-          {' '}({hit.toLocaleString()} / {graded.toLocaleString()}장에서 1게임 이상 당첨)
+          {' '}— {graded.toLocaleString()}장 중 {hit.toLocaleString()}장에서 1게임 이상 당첨
         </>
       ) : (
         <span className="text-amber-700">{total.toLocaleString()}장 집계 예정</span>
@@ -99,8 +99,14 @@ function ModeBreakdown({ byMode }: { byMode: RecommendationModeSummary[] }) {
                     집계 예정
                   </span>
                 ) : (
-                  <span className="font-display text-2xl text-brand-dark">
-                    {rate.toFixed(1)}%
+                  <span className="text-right">
+                    <span className="font-display text-2xl text-brand-dark">
+                      {rate.toFixed(1)}%
+                    </span>
+                    {/* Slip modes show two differently-scoped rates; label this one. */}
+                    {gamesPerSlip(key) > 1 && (
+                      <span className="block text-[11px] text-gray-400">게임당 적중률</span>
+                    )}
                   </span>
                 )}
               </div>

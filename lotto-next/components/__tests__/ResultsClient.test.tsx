@@ -80,8 +80,23 @@ describe('ResultsClient', () => {
     global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => data }) as unknown as typeof fetch
     render(<ResultsClient />)
     const slip = await screen.findByTestId('slip-stats')
+    expect(slip).toHaveTextContent('한 장(5게임) 적중률')
     expect(slip).toHaveTextContent('10.0%')
-    expect(slip).toHaveTextContent('1 / 10장에서 1게임 이상 당첨')
+    expect(slip).toHaveTextContent('10장 중 1장에서 1게임 이상 당첨')
+    // the per-game badge is labelled so the two rates aren't read as contradicting
+    expect(screen.getByText('게임당 적중률')).toBeInTheDocument()
+  })
+
+  it('shows 집계 예정 for target5 when slips are recorded but none graded yet', async () => {
+    const data = summary({
+      byMode: [{
+        mode: 'target5', total: 5, graded_count: 0, rank1: 0, rank2: 0, rank3: 0, rank4: 0, rank5: 0,
+        slip_total: 1, slip_graded: 0, slip_hit: 0,
+      }],
+    })
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => data }) as unknown as typeof fetch
+    render(<ResultsClient />)
+    expect(await screen.findByTestId('slip-stats')).toHaveTextContent('1장 집계 예정')
   })
 
   it('shows 집계 예정 for a mode with picks but none graded yet', async () => {

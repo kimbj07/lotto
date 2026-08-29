@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import BallSet from './BallSet'
 import DrawAnimation from './DrawAnimation'
 import SelectableNumberGrid from './SelectableNumberGrid'
 import KakaoShareButton from './KakaoShareButton'
 import type { RecommendMode } from '@/types/lotto'
-import { TARGET5_MAX_EXCLUDE } from '@/types/lotto'
+import { MODE_CONFIGS, modeConfig, gameLabel } from '@/lib/recommendModes'
 
 // Minimum time the draw cage spins, so a fast fetch still shows a full draw
 // instead of a flash. A slow fetch just spins longer.
@@ -15,15 +15,7 @@ const MIN_SPIN_MS = 800
 
 type Phase = 'idle' | 'drawing' | 'result'
 
-const MODES: { key: RecommendMode; label: string; desc: string }[] = [
-  { key: 'stats', label: '통계 기반', desc: '자주 나온 번호와 최근 보너스 번호를 피하고, 저빈도·중간 빈도 번호를 섞어 추천합니다.' },
-  { key: 'exception', label: '제외 기반', desc: '통계 기반 규칙에 더해 8회차 전 당첨 번호에서 하나를 골라 변화를 줍니다.' },
-  { key: 'random', label: '랜덤', desc: '1~45에서 완전 무작위로 6개를 뽑습니다.' },
-  { key: 'target5', label: '5등 노리기', desc: '5게임(5,000원) 한 장을 30개 번호가 서로 겹치지 않게 짭니다. 5게임 중 한 게임이라도 3개 이상 맞을 확률이 가장 높은 배치예요. 포함 번호는 겹침이 없도록 게임마다 하나씩 나눠 들어가고, 제외 번호는 15개까지 고를 수 있어요.' },
-]
-
-const DEFAULT_MAX_EXCLUDE = 38
-const GAME_LABELS = ['A', 'B', 'C', 'D', 'E']
+const pct = (v: number) => `${v.toFixed(1)}%`
 
 function FoldSection({
   testId, label, count, max, open, onToggle, children,
@@ -70,14 +62,11 @@ export default function RecommenderClient() {
   const [mode, setMode] = useState<RecommendMode>('stats')
   const [include, setInclude] = useState<number[]>([])
   const [exclude, setExclude] = useState<number[]>([])
-  const [numbers, setNumbers] = useState<number[]>([])
+  // Every mode returns `games: number[][]`; single-game modes have one entry.
   const [games, setGames] = useState<number[][]>([])
   const [phase, setPhase] = useState<Phase>('idle')
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
-  // Monotonic request id: a response only lands if it's still the latest one
-  // (guards against a mode switch racing an in-flight draw).
-  const seqRef = useRef(0)
   const [includeOpen, setIncludeOpen] = useState(false)
   const [excludeOpen, setExcludeOpen] = useState(false)
   const [reduceMotion, setReduceMotion] = useState(false)
@@ -92,11 +81,9 @@ export default function RecommenderClient() {
     return () => mq.removeEventListener('change', onChange)
   }, [])
 
-  const desc = MODES.find(m => m.key === mode)!.desc
+  const cfg = modeConfig(mode)
+  const isSlip = cfg.games > 1
   const drawing = phase === 'drawing'
-  const isSlip = mode === 'target5'
-  // target5 needs 30 distinct numbers, so it caps excludes at 15.
-  const maxExclude = isSlip ? TARGET5_MAX_EXCLUDE : DEFAULT_MAX_EXCLUDE
 
   function toggle(list: number[], set: (v: number[]) => void, max: number, n: number) {
     if (list.includes(n)) set(list.filter(x => x !== n))
@@ -104,17 +91,19 @@ export default function RecommenderClient() {
   }
 
   function selectMode(next: RecommendMode) {
+    // Tabs are disabled while drawing, so no request can be superseded.
     if (next === mode || drawing) return
+    const nextCfg = modeConfig(next)
     setMode(next)
     setNotice(null)
-    // Drop excludes beyond the tighter slip cap so the request stays valid —
-    // and say so, since the grid is sorted numerically and the user can't tell
-    // which picks were dropped otherwise.
-    if (next === 'target5' && exclude.length > TARGET5_MAX_EXCLUDE) {
-      const dropped = exclude.length - TARGET5_MAX_EXCLUDE
-      setExclude(exclude.slice(0, TARGET5_MAX_EXCLUDE))
+    // A tighter exclude cap (target5 needs 30 free numbers) may force us to
+    // drop picks. Say which ones — the grid is sorted, click order isn't.
+    if (exclude.length > nextCfg.maxExclude) {
+      const dropped = exclude.slice(nextCfg.maxExclude).sort((a, b) => a - b)
+      setExclude(exclude.slice(0, nextCfg.maxExclude))
       setExcludeOpen(true)
-      setNotice(`5등 노리기는 제외 번호를 ${TARGET5_MAX_EXCLUDE}개까지 고를 수 있어서 ${dropped}개를 해제했어요.`)
+      const what = dropped.length <= 4 ? `${dropped.join('·')}번을` : `${dropped.length}개를`
+      setNotice(`제외 번호는 ${nextCfg.maxExclude}개까지라 ${what} 해제했어요.`)
     }
     // A result from another mode has a different shape; clear it.
     setPhase('idle')
@@ -122,7 +111,6 @@ export default function RecommenderClient() {
   }
 
   async function generate() {
-    const seq = ++seqRef.current
     setError(null)
     setNotice(null)
     setPhase('drawing')
@@ -133,14 +121,14 @@ export default function RecommenderClient() {
       if (exclude.length) params.set('exclude', exclude.join(','))
       // Fetch and the minimum spin run together; reveal once both are done.
       const [res] = await Promise.all([fetch(`/api/recommend?${params}`), minSpin])
-      const data = await res.json()
-      if (seq !== seqRef.current) return // superseded by a newer draw
-      if (!res.ok) throw new Error(data.error)
-      if (isSlip) setGames(data.games)
-      else setNumbers(data.numbers)
+      // A gateway error page isn't JSON — don't surface a SyntaxError to users.
+      const data = await res.json().catch(() => null)
+      if (!res.ok || !data?.games) {
+        throw new Error(data?.error ?? '번호를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.')
+      }
+      setGames(data.games)
       setPhase('result')
     } catch (e: unknown) {
-      if (seq !== seqRef.current) return
       setError((e as Error).message)
       setPhase('idle')
     }
@@ -149,14 +137,16 @@ export default function RecommenderClient() {
   return (
     <div className="card max-w-xl mx-auto">
       <div className="text-center">
-        <div className="inline-flex flex-wrap justify-center p-1.5 rounded-full bg-emerald-50 gap-1">
-          {MODES.map((m) => (
+        {/* Wraps to two rows on narrow phones; a stadium radius looks broken
+            when it does, so soften the container corners below sm. */}
+        <div className="inline-flex flex-wrap justify-center p-1.5 rounded-2xl sm:rounded-full bg-emerald-50 gap-1">
+          {MODE_CONFIGS.map((m) => (
             <button
               key={m.key}
               onClick={() => selectMode(m.key)}
               disabled={drawing}
               aria-pressed={mode === m.key}
-              className={`px-5 py-2.5 rounded-full text-sm transition disabled:opacity-60 ${
+              className={`px-3.5 py-2 text-xs sm:px-5 sm:py-2.5 sm:text-sm rounded-full transition disabled:opacity-60 ${
                 mode === m.key
                   ? 'font-display bg-gradient-to-b from-brand to-brand-dark text-white shadow'
                   : 'text-gray-500 hover:bg-white'
@@ -166,7 +156,7 @@ export default function RecommenderClient() {
             </button>
           ))}
         </div>
-        <p className="mt-3 text-sm text-gray-500">{desc}</p>
+        <p className="mt-3 text-sm text-gray-500">{cfg.desc}</p>
       </div>
 
       <div className="mt-6 space-y-3">
@@ -190,28 +180,30 @@ export default function RecommenderClient() {
           testId="exclude-grid"
           label="제외할 번호"
           count={exclude.length}
-          max={maxExclude}
+          max={cfg.maxExclude}
           open={excludeOpen}
           onToggle={() => setExcludeOpen((o) => !o)}
         >
           <SelectableNumberGrid
             selected={exclude}
-            onToggle={(n) => toggle(exclude, setExclude, maxExclude, n)}
-            max={maxExclude}
+            onToggle={(n) => toggle(exclude, setExclude, cfg.maxExclude, n)}
+            max={cfg.maxExclude}
             disabled={include}
             accent="red"
           />
         </FoldSection>
+        {notice && (
+          <p role="status" className="text-amber-700 text-sm text-center">{notice}</p>
+        )}
       </div>
 
       <div className="mt-7 text-center">
         <button onClick={generate} disabled={drawing} className="btn-gold">
-          {drawing ? '추첨 중...' : isSlip ? '🎱 5게임 추천받기' : '🎱 번호 추천받기'}
+          {drawing ? '추첨 중...' : isSlip ? `🎱 ${cfg.games}게임 추천받기` : '🎱 번호 추천받기'}
         </button>
       </div>
 
-      {error && <p className="mt-4 text-red-500 text-sm text-center">{error}</p>}
-      {notice && <p role="status" className="mt-4 text-amber-700 text-sm text-center">{notice}</p>}
+      {error && <p role="alert" className="mt-4 text-red-500 text-sm text-center">{error}</p>}
 
       {drawing && (
         <div className="mt-8 rounded-3xl p-6 bg-gradient-to-br from-emerald-50 to-amber-50 border border-black/5 flex justify-center">
@@ -219,40 +211,45 @@ export default function RecommenderClient() {
         </div>
       )}
 
-      {phase === 'result' && !isSlip && numbers.length > 0 && (
+      {phase === 'result' && games.length === 1 && (
         <div className="mt-8 rounded-3xl p-6 bg-gradient-to-br from-emerald-50 to-amber-50 border border-black/5 text-center">
           <p className="font-display text-brand-dark mb-4">✨ 당신의 행운 번호</p>
-          <BallSet balls={numbers} animate={!reduceMotion} className="justify-center flex-wrap" />
+          <BallSet balls={games[0]} animate={!reduceMotion} className="justify-center flex-wrap" />
           <div className="mt-6 flex justify-center">
             <KakaoShareButton />
           </div>
         </div>
       )}
 
-      {phase === 'result' && isSlip && games.length > 0 && (
+      {phase === 'result' && games.length > 1 && (
         <div
           data-testid="slip-result"
-          className="mt-8 rounded-3xl p-6 bg-gradient-to-br from-emerald-50 to-amber-50 border border-black/5"
+          className="mt-8 rounded-3xl p-4 sm:p-6 bg-gradient-to-br from-emerald-50 to-amber-50 border border-black/5"
         >
-          <p className="font-display text-brand-dark mb-4 text-center">🎯 5등 노리기 — 5게임 한 장</p>
-          <ol className="space-y-2.5">
+          <p className="font-display text-brand-dark mb-4 text-center">🎯 {cfg.label} — {games.length}게임 한 장</p>
+          {/* Label above the row: 6 balls only just fit a 360px phone, so never
+              make them share a line with the label. */}
+          <ol className="space-y-3">
             {games.map((g, i) => (
-              <li key={i} className="flex items-center gap-3">
-                <span className="w-6 shrink-0 font-display text-sm text-gray-400">{GAME_LABELS[i]}</span>
-                <BallSet balls={g} size="sm" animate={!reduceMotion} className="flex-wrap" />
+              <li key={i} className="flex flex-col gap-1">
+                <span className="font-display text-xs text-gray-400">{gameLabel(i)}</span>
+                <BallSet balls={g} size="sm" dense animate={!reduceMotion} className="flex-wrap" />
               </li>
             ))}
           </ol>
-          <div className="mt-5 rounded-2xl bg-white/60 px-4 py-3 text-xs leading-relaxed text-gray-500">
-            <p>
-              30개 번호가 한 번도 겹치지 않아, <b className="text-gray-700">5게임 중 1게임 이상 5등(3개 일치)</b> 확률이{' '}
-              <b className="font-display text-brand-dark">11.9%</b>로 5게임 배치 중 가장 높아요.
-              (랜덤 5게임 11.4% · 1게임 2.4%)
-            </p>
-            <p className="mt-1">
-              로또는 순수 무작위라 번호 자체로 확률을 올릴 순 없어요 — 겹치지 않는 배치만이 &ldquo;한 번이라도 맞을&rdquo; 확률을 올립니다.
-            </p>
-          </div>
+          {cfg.odds && (
+            <div className="mt-5 rounded-2xl bg-white/60 px-4 py-3">
+              <div className="flex flex-wrap gap-2 justify-center">
+                <span className="rounded-full bg-black/5 text-gray-600 px-3 py-1 text-sm">1게임 {pct(cfg.odds.single)}</span>
+                <span className="rounded-full bg-black/5 text-gray-600 px-3 py-1 text-sm">랜덤 {cfg.games}게임 {pct(cfg.odds.independent)}</span>
+                <span className="rounded-full bg-gold/20 text-gold-dark font-display px-3 py-1 text-sm">이 배치 {pct(cfg.odds.slip)}</span>
+              </div>
+              <p className="mt-3 text-sm leading-relaxed text-gray-600">
+                {cfg.games * 6}개 번호를 게임마다 겹치지 않게 나눠서, {cfg.games}게임 중 하나라도 5등(3개 일치)에 당첨될 확률을 가장 높였어요.
+                번호를 잘 골라서가 아니라 겹치지 않는 배치 덕분이에요 — 로또는 완전 무작위라 번호로 확률을 바꿀 순 없어요.
+              </p>
+            </div>
+          )}
           <div className="mt-5 flex justify-center">
             <KakaoShareButton />
           </div>
