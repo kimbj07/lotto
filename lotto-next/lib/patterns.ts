@@ -91,11 +91,15 @@ export function analyzePatterns(input: DrawBalls[]): PatternReport {
   const n = draws.length
 
   // [1] previous round's bonus appears among next round's 6
-  let bonusHits = 0
+  let bonusHits = 0, bonusTrials = 0
   // [2] previous round's 6 main numbers reappear
   let mainHits = 0, mainTrials = 0
   for (let i = 1; i < n; i++) {
+    // "Previous round" means game_no − 1, not the previous array element:
+    // a gap in the history must not pair non-adjacent draws.
+    if (draws[i].game_no !== draws[i - 1].game_no + 1) continue
     const cur = new Set(draws[i].balls)
+    bonusTrials++
     if (cur.has(draws[i - 1].bonus)) bonusHits++
     for (const b of draws[i - 1].balls) { mainTrials++; if (cur.has(b)) mainHits++ }
   }
@@ -153,7 +157,7 @@ export function analyzePatterns(input: DrawBalls[]): PatternReport {
     baseRate: BASE_RATE,
     zThreshold: Z_THRESHOLD,
     tests: [
-      makeTest('prev_bonus_repeat', bonusHits, Math.max(0, n - 1), 1),
+      makeTest('prev_bonus_repeat', bonusHits, bonusTrials, 1),
       makeTest('prev_main_repeat', mainHits, mainTrials, 6),
       makeTest('cumulative_hot', hotHits, hotTrials, HOT_K),
       makeTest('cumulative_cold', coldHits, coldTrials, HOT_K),
@@ -164,8 +168,9 @@ export function analyzePatterns(input: DrawBalls[]): PatternReport {
       df: 44,
       cutoff95: CHI2_CUTOFF_95,
       expectedPerNumber: Number(expectedPerNumber.toFixed(1)),
-      sd: Number(Math.sqrt(expectedPerNumber * (1 - 1 / 45)).toFixed(1)),
-      uniform: chi2 < CHI2_CUTOFF_95,
+      // Each number's count is Binomial(n, 6/45): sd = √(n·p·(1−p)) = √(E·(1−p)).
+      sd: Number(Math.sqrt(expectedPerNumber * (1 - BASE_RATE)).toFixed(1)),
+      uniform: n > 0 && chi2 < CHI2_CUTOFF_95,
     },
     mostFrequent: ranked.slice(0, 5).map(freq),
     leastFrequent: ranked.slice(-5).reverse().map(freq),

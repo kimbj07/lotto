@@ -28,19 +28,32 @@ export async function GET() {
   const latest = await getLatestGameNo(supabase)
   if (!latest.ok) return serverError('patterns.latest', latest.error)
 
+  // Keyset-style paging: the next chunk starts after the LAST ROW RETURNED,
+  // not at a fixed offset. If the project's Max rows were ever lowered below
+  // CHUNK, a fixed-offset loop would silently skip the rows past the cap and
+  // cache a history with a hole for an hour (+ CDN). A chunk with no rows
+  // (a genuine gap in game_no) just advances by CHUNK.
   const draws: DrawBalls[] = []
-  for (let from = 1; from <= latest.gameNo; from += CHUNK) {
+  let from = 1
+  while (from <= latest.gameNo) {
+    const to = Math.min(latest.gameNo, from + CHUNK - 1)
     const { data, error } = await supabase.rpc('get_game_info_in_range', {
-      p_from: from, p_to: Math.min(latest.gameNo, from + CHUNK - 1), p_order: 'ASC',
+      p_from: from, p_to: to, p_order: 'ASC',
     })
     if (error) return serverError('patterns', error.message)
-    for (const g of ((data as GameInfo[]) ?? [])) {
+    const rows = ((data as GameInfo[]) ?? [])
+    for (const g of rows) {
       draws.push({
         game_no: g.game_no,
         balls: [g.first_ball, g.second_ball, g.third_ball, g.fourth_ball, g.fifth_ball, g.sixth_ball],
         bonus: g.bonus_ball,
       })
     }
+    const last = rows.length ? rows[rows.length - 1].game_no : 0
+    // If the DB handed back rows out of order or below `from` something is
+    // badly wrong; refuse rather than loop forever or cache garbage.
+    if (rows.length && last < from) return serverError('patterns.order', `rows out of range at ${from}`)
+    from = rows.length && last < to ? last + 1 : to + 1
   }
 
   const report = analyzePatterns(draws)

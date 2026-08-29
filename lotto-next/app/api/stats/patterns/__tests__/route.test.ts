@@ -43,6 +43,34 @@ describe('GET /api/stats/patterns', () => {
     expect(res.headers.get('Cache-Control')).toContain('s-maxage')
   })
 
+  it('keeps paging from the last row returned when the DB caps a chunk (no silent hole)', async () => {
+    // Simulate Max rows lowered to 500: every chunk returns at most 500 rows.
+    rpcMock.mockImplementation(async (_fn: string, args: { p_from: number; p_to: number }) => ({
+      data: Array.from({ length: Math.min(500, args.p_to - args.p_from + 1) }, (_, i) => game(args.p_from + i)),
+      error: null,
+    }))
+    const body = await (await GET()).json()
+    expect(body.draws).toBe(1238)
+    expect(rpcMock.mock.calls.map(c => c[1].p_from)).toEqual([1, 501, 1001])
+  })
+
+  it('handles a latest game_no that is an exact multiple of the chunk size', async () => {
+    singleMock.mockResolvedValue({ data: { game_no: 1800 }, error: null })
+    const body = await (await GET()).json()
+    expect(body.draws).toBe(1800)
+    expect(rpcMock.mock.calls.map(c => [c[1].p_from, c[1].p_to])).toEqual([[1, 900], [901, 1800]])
+  })
+
+  it('advances past an empty range (gap in game_no) instead of looping', async () => {
+    rpcMock.mockImplementation(async (_fn: string, args: { p_from: number; p_to: number }) => ({
+      data: args.p_from === 1 ? [] : Array.from({ length: args.p_to - args.p_from + 1 }, (_, i) => game(args.p_from + i)),
+      error: null,
+    }))
+    const body = await (await GET()).json()
+    expect(body.draws).toBe(1238 - 900)
+    expect(rpcMock).toHaveBeenCalledTimes(2)
+  })
+
   it('serves the second call from the in-memory cache', async () => {
     await GET()
     await GET()
