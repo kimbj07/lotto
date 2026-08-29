@@ -72,9 +72,13 @@ dashboard access on the new PC, sign in with the same accounts that own those pr
 ```bash
 PORT=3100 npm run dev      # or: npm run start after npm run build
 npm test                   # Jest + Testing Library
-npm run build              # compile + type-check (NO lint: ESLint is not configured yet —
-                           # `npm run lint` drops into next's interactive setup prompt)
+npm run lint               # ESLint (next/core-web-vitals) — added in PR #29; ran never before
+npm run build              # compile + type-check + lint
 ```
+
+**CI:** `.github/workflows/ci.yml` runs `tsc --noEmit`, `npm run lint`, `npm test`, `npm run build`
+on every PR and on `master` (added in PR #29 — before that nothing ran the tests, which is how
+3 of the 4 `/api/sync` tests stayed broken-and-unnoticed from PR #7 onward).
 
 ---
 
@@ -140,6 +144,35 @@ Auth via `CRON_SECRET` (unauth → 401). `/api/sync` grades the new draw and reb
 summary tables, then evicts the in-memory cache (`lib/cache.ts`, 1h TTL) **after** the
 rebuild.
 
+Failure behaviour (hardened in PR #29 — read this before "fixing" a sync):
+- Draws are inserted **in order and the loop stops at the first failure** (`break`, not
+  `continue`). The next run resumes from `max(game_no)`, so a failed draw is retried, never
+  skipped. (Before: a transient failure on draw N with N+1 succeeding left N missing forever.)
+- At most **10 draws per run** (`MAX_GAMES_PER_RUN`), `maxDuration = 60`, 8s upstream timeout.
+  A long outage is caught up over several Sundays; the response's `remaining` says how many
+  are left. Trigger `POST /api/sync` by hand with the secret to catch up faster.
+- The response includes `errors: string[]` when any insert/RPC failed — a run that says
+  `synced: 1` but lists a `refresh_recommendation_summary` error means `/results` is stale.
+  Check the Vercel cron log; nothing else alerts.
+- dhlottery unreachable → 502; DB error reading `max(game_no)` → 500 and **nothing is synced**
+  (the old fallback to 0 re-fetched every draw since 2002). `lib/latestGameNo.ts` is the one
+  place that reads the latest draw — every route and the seed script use it.
+
+## 5a. Other operational guards (PR #29)
+
+- **Rate limit** on `/api/recommend` (`middleware.ts`): 20 req/min per IP, 429 with
+  `Retry-After`. It's an in-memory bucket per edge instance — a speed bump against a casual
+  loop, not protection against a distributed client. Upgrade path: `@upstash/ratelimit`.
+- **CDN caching**: `/api/history`, `/api/stats`, `/api/recommendations/summary` send
+  `Cache-Control: public, s-maxage=3600, stale-while-revalidate=86400` (`lib/httpCache.ts`).
+  No purge on cron — data can be up to 1h stale after a draw, same as the in-memory TTL.
+- **Error contract**: routes never return raw Postgres/PostgREST text; they log it and return
+  `{ error: <fixed Korean message>, code }` (`lib/apiError.ts`). Clients go through
+  `lib/fetchJson.ts`, which checks `res.ok` before parsing (a Vercel 504 HTML page no longer
+  renders as "Unexpected token '<'").
+- `/api/my-numbers` pages `win_numbers` in 500-row ranges. The old single query sat at
+  PostgREST's default 1000-row cap (~984 rows at draw 1230) and **truncated silently**.
+
 ---
 
 ## 6. State of the data
@@ -185,7 +218,14 @@ No hard blockers. Recently shipped: Kakao share (working), lottery-cage draw ani
 reciprocal cross-promo banners (멍사주 + 이름 궁합), canonical domain luck-lotto.vercel.app,
 5등 노리기 mode (PR #29). Candidate follow-ups (not committed to):
 
-- **Apply migration 008** in Supabase after PR #29 merges (see §3).
+- **Apply migration 008** in Supabase before PR #29 merges (see §3).
+- Not done in PR #29 (deliberately, needs its own decision/migration): single-source the
+  prize-rank rule (`lib/rank.ts` + two SQL graders) as one SQL function; split
+  `refresh_recommendation_summary()` so it stops being redefined verbatim per migration;
+  a `schema_migrations` table; deleting the legacy Java tree at the repo root (`src/`,
+  `build.gradle`, `gradle*` — 23MB, unreferenced since 2019; tag `legacy-java-final` first);
+  server-rendering `/history` `/stats` `/results` (helps LCP/crawlers on those three pages
+  only — `/` is action-driven and gains nothing).
 - After a few weekly crons, compare the target5 slip hit-rate on `/results` against the
   11.87% theoretical value; if the owner wants more, the natural extension is a 7-game
   layout covering 42 numbers (needs a 7-game UI + `TARGET5_GAMES` generalisation).

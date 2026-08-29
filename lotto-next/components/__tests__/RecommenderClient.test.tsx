@@ -145,7 +145,7 @@ describe('RecommenderClient', () => {
       global.fetch = jest.fn().mockResolvedValue({ ok: false, json: async () => { throw new SyntaxError('Unexpected token <') } }) as unknown as typeof fetch
       render(<RecommenderClient />)
       fireEvent.click(screen.getByRole('button', { name: /번호 추천받기/ }))
-      expect(await screen.findByRole('alert')).toHaveTextContent('번호를 불러오지 못했어요')
+      expect(await screen.findByRole('alert')).toHaveTextContent('불러오지 못했어요')
     })
 
     it('rapid re-clicks during a draw fire exactly one fetch and one result', async () => {

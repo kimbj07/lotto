@@ -9,8 +9,8 @@ import { fetchLatestGameNo, fetchGameInfo } from '@/lib/lotto-api'
 
 jest.mock('@/lib/cache')
 
-const insertMock = jest.fn().mockResolvedValue({ error: null })
-const rpcMock = jest.fn().mockResolvedValue({ error: null })
+const insertMock = jest.fn()
+const rpcMock = jest.fn()
 const singleMock = jest.fn()
 jest.mock('@/lib/supabase', () => ({
   createAdminClient: () => ({
@@ -50,8 +50,8 @@ const realSetTimeout = global.setTimeout
 beforeEach(() => {
   process.env.CRON_SECRET = 'test-secret'
   ;(clearCache as jest.Mock).mockClear()
-  insertMock.mockClear()
-  rpcMock.mockClear()
+  insertMock.mockReset().mockResolvedValue({ error: null })
+  rpcMock.mockReset().mockResolvedValue({ error: null })
   singleMock.mockReset()
   fetchLatest.mockReset()
   fetchGame.mockReset()
@@ -108,4 +108,70 @@ it('does not grade or refresh when nothing is synced', async () => {
   await GET(authedReq())
 
   expect(rpcMock).not.toHaveBeenCalled()
+})
+
+describe('failure handling', () => {
+  it('returns 502 (not an unhandled 500) when dhlottery is unreachable', async () => {
+    fetchLatest.mockRejectedValue(new Error('Request failed (503)'))
+    const res = await GET(authedReq())
+    expect(res.status).toBe(502)
+    expect(insertMock).not.toHaveBeenCalled()
+  })
+
+  it('treats a DB error on max(game_no) as fatal instead of re-syncing from draw 1', async () => {
+    singleMock.mockResolvedValue({ data: null, error: { code: '08006', message: 'connection failure' } })
+    fetchLatest.mockResolvedValue(1231)
+    const res = await GET(authedReq())
+    expect(res.status).toBe(500)
+    expect(fetchGame).not.toHaveBeenCalled()
+  })
+
+  it('starts from draw 1 when the table is genuinely empty (PGRST116)', async () => {
+    singleMock.mockResolvedValue({ data: null, error: { code: 'PGRST116', message: 'no rows' } })
+    fetchLatest.mockResolvedValue(2)
+    fetchGame.mockImplementation(async (n: number) => fullGame(n))
+    const body = await (await GET(authedReq())).json()
+    expect(body.lastSavedGameNo).toBe(0)
+    expect(body.synced).toBe(2)
+    expect(fetchGame).toHaveBeenCalledWith(1)
+  })
+
+  it('stops at the first failed draw so it is retried next run (no permanent hole)', async () => {
+    singleMock.mockResolvedValue({ data: { game_no: 1230 } })
+    fetchLatest.mockResolvedValue(1233)
+    fetchGame.mockImplementation(async (n: number) => {
+      if (n === 1232) throw new Error('No data for game 1232')
+      return fullGame(n)
+    })
+    const body = await (await GET(authedReq())).json()
+    expect(body.synced).toBe(1)          // 1231 only
+    expect(body.skipped).toBe(1)
+    expect(fetchGame).not.toHaveBeenCalledWith(1233) // did NOT jump past 1232
+    expect(body.remaining).toBe(2)
+    expect(body.errors[0]).toMatch(/fetch 1232/)
+    // partial progress still grades + refreshes + evicts
+    expect(rpcMock).toHaveBeenCalledWith('refresh_recommendation_summary')
+    expect(clearCache).toHaveBeenCalledTimes(1)
+  })
+
+  it('caps a catch-up at MAX_GAMES_PER_RUN and reports the remainder', async () => {
+    singleMock.mockResolvedValue({ data: { game_no: 1000 } })
+    fetchLatest.mockResolvedValue(1100)
+    fetchGame.mockImplementation(async (n: number) => fullGame(n))
+    const body = await (await GET(authedReq())).json()
+    expect(body.synced).toBe(10)
+    expect(body.remaining).toBe(90)
+  })
+
+  it('reports RPC errors instead of claiming a clean run', async () => {
+    singleMock.mockResolvedValue({ data: { game_no: 1230 } })
+    fetchLatest.mockResolvedValue(1231)
+    fetchGame.mockResolvedValue(fullGame(1231))
+    rpcMock.mockImplementation(async (fn: string) =>
+      fn === 'refresh_recommendation_summary' ? { error: { message: 'DELETE requires a WHERE clause' } } : { error: null }
+    )
+    const body = await (await GET(authedReq())).json()
+    expect(body.synced).toBe(1)
+    expect(body.errors).toEqual([expect.stringMatching(/refresh_recommendation_summary: DELETE requires/)])
+  })
 })

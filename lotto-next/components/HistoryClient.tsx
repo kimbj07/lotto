@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import BallSet from './BallSet'
+import { fetchJson } from '@/lib/fetchJson'
 import type { GameInfo } from '@/types/lotto'
 
 const LATEST_COUNT = 5
@@ -19,9 +20,7 @@ export default function HistoryClient() {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/history?${params}`)
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      const data = await fetchJson<{ games: GameInfo[] }>(`/api/history?${params}`)
       setGames(data.games)
       setShowingLatest(latest)
     } catch (e: unknown) {
@@ -66,7 +65,7 @@ export default function HistoryClient() {
             {loading ? '조회 중...' : '조회'}
           </button>
         </div>
-        {error && <p className="mt-4 text-red-500 text-sm">{error}</p>}
+        {error && <p role="alert" className="mt-4 text-red-500 text-sm">{error}</p>}
       </div>
 
       {games.length > 0 && (

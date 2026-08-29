@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { fetchJson } from '@/lib/fetchJson'
 import type { MyRankInGame } from '@/types/lotto'
 
 const RANK_LABEL: Record<number, string> = {
@@ -38,9 +39,7 @@ export default function MyNumbersClient() {
     setError(null)
     const params = new URLSearchParams(nums.map((n, i) => [`n${i + 1}`, String(n)]))
     try {
-      const res = await fetch(`/api/my-numbers?${params}`)
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
+      const data = await fetchJson<{ results: MyRankInGame[] }>(`/api/my-numbers?${params}`)
       setResults(data.results)
     } catch (e: unknown) {
       setError((e as Error).message)
@@ -72,7 +71,7 @@ export default function MyNumbersClient() {
             {loading ? '확인 중...' : '🔍 이력 확인'}
           </button>
         </div>
-        {error && <p className="mt-4 text-red-500 text-sm">{error}</p>}
+        {error && <p role="alert" className="mt-4 text-red-500 text-sm">{error}</p>}
       </div>
 
       {results !== null &&

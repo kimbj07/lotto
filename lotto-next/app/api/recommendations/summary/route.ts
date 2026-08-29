@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { getCached, setCached } from '@/lib/cache'
+import { serverError } from '@/lib/apiError'
+import { WEEKLY_CACHE_CONTROL } from '@/lib/httpCache'
 import type {
   RecommendationRoundSummary,
   RecommendationModeSummary,
@@ -19,7 +21,7 @@ const CACHE_KEY = 'recommendations:summary'
 
 export async function GET() {
   const cached = getCached<RecommendationSummary>(CACHE_KEY)
-  if (cached) return NextResponse.json(cached)
+  if (cached) return NextResponse.json(cached, { headers: CACHE_HEADERS })
 
   const supabase = createServerClient()
   // Both reads hit pre-materialized summary tables; run them concurrently.
@@ -28,7 +30,7 @@ export async function GET() {
     supabase.from('recommendation_mode_summary').select('*'),
   ])
 
-  if (summaryRes.error) return NextResponse.json({ error: summaryRes.error.message }, { status: 500 })
+  if (summaryRes.error) return serverError('summary', summaryRes.error.message)
 
   const rounds = (summaryRes.data as RecommendationRoundSummary[]) ?? []
   const allTime = rounds.reduce(
@@ -52,5 +54,7 @@ export async function GET() {
   // Only cache once there's real data — don't make a cold/empty summary sticky
   // for the full TTL (mirrors the history route's non-empty guard).
   if (rounds.length > 0) setCached(CACHE_KEY, body)
-  return NextResponse.json(body)
+  return NextResponse.json(body, { headers: CACHE_HEADERS })
 }
+
+const CACHE_HEADERS = { 'Cache-Control': WEEKLY_CACHE_CONTROL }

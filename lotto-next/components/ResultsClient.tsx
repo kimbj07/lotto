@@ -7,6 +7,7 @@ import type {
   RecommendationModeSummary,
 } from '@/types/lotto'
 import { MODE_CONFIGS, isRecommendMode, modeConfig } from '@/lib/recommendModes'
+import { fetchJson } from '@/lib/fetchJson'
 
 const RANKS = [1, 2, 3, 4, 5] as const
 
@@ -135,18 +136,12 @@ export default function ResultsClient() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    ;(async () => {
-      try {
-        const res = await fetch('/api/recommendations/summary')
-        const json = await res.json()
-        if (!res.ok) throw new Error(json.error)
-        setData(json)
-      } catch (e: unknown) {
-        setError((e as Error).message)
-      } finally {
-        setLoading(false)
-      }
-    })()
+    let alive = true // no setState after unmount
+    fetchJson<RecommendationSummary>('/api/recommendations/summary')
+      .then((json) => { if (alive) setData(json) })
+      .catch((e: unknown) => { if (alive) setError((e as Error).message) })
+      .finally(() => { if (alive) setLoading(false) })
+    return () => { alive = false }
   }, [])
 
   if (loading) return <p className="text-gray-400 text-center py-8">불러오는 중...</p>

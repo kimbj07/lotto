@@ -8,6 +8,7 @@ import SelectableNumberGrid from './SelectableNumberGrid'
 import KakaoShareButton from './KakaoShareButton'
 import type { RecommendMode } from '@/types/lotto'
 import { MODE_CONFIGS, modeConfig, gameLabel } from '@/lib/recommendModes'
+import { fetchJson, FETCH_FALLBACK_MESSAGE } from '@/lib/fetchJson'
 
 // Minimum time the draw cage spins, so a fast fetch still shows a full draw
 // instead of a flash. A slow fetch just spins longer.
@@ -120,12 +121,11 @@ export default function RecommenderClient() {
       if (include.length) params.set('include', include.join(','))
       if (exclude.length) params.set('exclude', exclude.join(','))
       // Fetch and the minimum spin run together; reveal once both are done.
-      const [res] = await Promise.all([fetch(`/api/recommend?${params}`), minSpin])
-      // A gateway error page isn't JSON — don't surface a SyntaxError to users.
-      const data = await res.json().catch(() => null)
-      if (!res.ok || !data?.games) {
-        throw new Error(data?.error ?? '번호를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.')
-      }
+      const [data] = await Promise.all([
+        fetchJson<{ games: number[][] }>(`/api/recommend?${params}`),
+        minSpin,
+      ])
+      if (!Array.isArray(data.games)) throw new Error(FETCH_FALLBACK_MESSAGE)
       setGames(data.games)
       setPhase('result')
     } catch (e: unknown) {

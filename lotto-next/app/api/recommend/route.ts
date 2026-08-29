@@ -8,6 +8,8 @@ import {
   recommendTarget5,
 } from '@/lib/recommend'
 import { isRecommendMode, modeConfig, MODE_KEYS } from '@/lib/recommendModes'
+import { getLatestGameNo } from '@/lib/latestGameNo'
+import { serverError } from '@/lib/apiError'
 import type { GameInfo, AppearanceCount } from '@/types/lotto'
 
 // Response contract (all modes): `games: number[][]` — one entry per game.
@@ -37,13 +39,15 @@ async function recordRecommendations(rows: Omit<RecommendationRow, 'target_game_
     const admin = createAdminClient()
     let target = targetGameNo
     if (target === undefined) {
-      const { data: latestRow } = await admin
-        .from('game_info')
-        .select('game_no')
-        .order('game_no', { ascending: false })
-        .limit(1)
-        .single()
-      target = ((latestRow?.game_no as number | undefined) ?? 0) + 1
+      // Never fall back to 0: a transient DB error used to record the pick
+      // against draw #1 (2002), which then got graded against that draw and
+      // sat in /results forever. Skip recording instead.
+      const latest = await getLatestGameNo(admin)
+      if (!latest.ok) {
+        console.error('recordRecommendation skipped (latest game_no unavailable):', latest.error)
+        return
+      }
+      target = latest.gameNo + 1
     }
     const withoutSlip = (r: RecommendationRow) => { const { slip_id: _omit, ...rest } = r; return rest }
     let full: RecommendationRow[] = rows.map(r => ({ ...r, target_game_no: target as number }))
@@ -127,20 +131,15 @@ export async function GET(req: NextRequest) {
   const supabase = createServerClient()
 
   // Fetch latest game number to build a targeted 10-game range
-  const { data: latestRow } = await supabase
-    .from('game_info')
-    .select('game_no')
-    .order('game_no', { ascending: false })
-    .limit(1)
-    .single()
-
-  const latestNo = latestRow?.game_no ?? 0
+  const latest = await getLatestGameNo(supabase)
+  if (!latest.ok) return serverError('recommend.latest', latest.error, 503)
+  const latestNo = latest.gameNo
 
   // Fetch last 10 games for stats-based recommendation
   const { data: gamesRaw, error: gamesErr } = await supabase.rpc('get_game_info_in_range', {
     p_from: Math.max(1, latestNo - 9), p_to: latestNo, p_order: 'DESC',
   })
-  if (gamesErr) return NextResponse.json({ error: gamesErr.message }, { status: 500 })
+  if (gamesErr) return serverError('recommend.games', gamesErr.message)
   const games = gamesRaw as GameInfo[]
 
   // Fetch appearance counts sorted by win count DESC
@@ -148,7 +147,7 @@ export async function GET(req: NextRequest) {
     p_from: null, p_to: null,
     p_sort_by: 'winCount', p_sort_order: 'DESC', p_count: null,
   })
-  if (countsErr) return NextResponse.json({ error: countsErr.message }, { status: 500 })
+  if (countsErr) return serverError('recommend.counts', countsErr.message)
   const counts = countsRaw as AppearanceCount[]
 
   try {
