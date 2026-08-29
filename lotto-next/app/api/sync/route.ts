@@ -1,7 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase'
 import { fetchLatestGameNo, fetchGameInfo } from '@/lib/lotto-api'
+import { getLatestGameNo } from '@/lib/latestGameNo'
 import { clearCache } from '@/lib/cache'
+
+// Vercel Hobby defaults to a 10s function budget; one draw costs roughly an
+// upstream fetch + 4 Supabase round-trips + the 300ms pause (~1.5s), so a
+// multi-week catch-up needs more. 60s is the Hobby maximum.
+export const maxDuration = 60
+
+// Cap per run so a long outage is caught up over several cron firings rather
+// than one run that times out mid-loop (which used to skip grading/refresh).
+// Each run makes progress and the next resumes from max(game_no).
+const MAX_GAMES_PER_RUN = 10
+
+// Pause between upstream calls so we don't hammer dhlottery during catch-up.
+const PAUSE_MS = 300
 
 // Called by Vercel Cron (see vercel.json) and manually via POST /api/sync.
 // Protected by CRON_SECRET when called from outside Vercel infra.
@@ -17,33 +31,45 @@ async function syncHandler(req: NextRequest): Promise<NextResponse> {
   // read-only access. Requires SUPABASE_SERVICE_ROLE_KEY in the environment.
   const supabase = createAdminClient()
 
-  // 1. Get latest game number from official site
-  const latestGameNo = await fetchLatestGameNo()
+  // 1. Get latest game number from official site. fetchLatestGameNo throws on
+  //    a non-OK / non-JSON / timed-out upstream — that's a 502, not a 500 page.
+  let latestGameNo: number
+  try {
+    latestGameNo = await fetchLatestGameNo()
+  } catch (e) {
+    console.error('[sync] dhlottery unreachable:', (e as Error).message)
+    return NextResponse.json({ error: 'Could not reach dhlottery' }, { status: 502 })
+  }
   if (latestGameNo === 0) {
     return NextResponse.json({ error: 'Could not fetch latest game number' }, { status: 502 })
   }
 
-  // 2. Get last saved game number from DB
-  const { data: maxRow } = await supabase
-    .from('game_info')
-    .select('game_no')
-    .order('game_no', { ascending: false })
-    .limit(1)
-    .single()
-
-  const lastSavedGameNo = maxRow?.game_no ?? 0
+  // 2. Get last saved game number from DB. A DB error here is fatal: falling
+  //    back to 0 (the old behaviour) re-fetched every draw since 2002.
+  const latest = await getLatestGameNo(supabase)
+  if (!latest.ok) {
+    console.error('[sync] could not read max(game_no):', latest.error)
+    return NextResponse.json({ error: 'Could not read last saved draw' }, { status: 500 })
+  }
+  const lastSavedGameNo = latest.gameNo
 
   let synced = 0
   let skipped = 0
+  const errors: string[] = []
+  const upTo = Math.min(latestGameNo, lastSavedGameNo + MAX_GAMES_PER_RUN)
 
-  // 3. Insert each missing game
-  for (let gameNo = lastSavedGameNo + 1; gameNo <= latestGameNo; gameNo++) {
+  // 3. Insert each missing game, IN ORDER, and stop at the first failure.
+  //    Continuing past a failed draw used to orphan it permanently: the next
+  //    run resumes from max(game_no), so a skipped draw was never retried —
+  //    a hole in /history and picks targeting it never graded.
+  for (let gameNo = lastSavedGameNo + 1; gameNo <= upTo; gameNo++) {
     let gameInfo
     try {
       gameInfo = await fetchGameInfo(gameNo)
-    } catch {
+    } catch (e) {
+      errors.push(`fetch ${gameNo}: ${(e as Error).message}`)
       skipped++
-      continue
+      break
     }
 
     // Insert game_info row
@@ -71,7 +97,11 @@ async function syncHandler(req: NextRequest): Promise<NextResponse> {
       manual_winner_count: gameInfo.manual_winner_count,
       auto_winner_count: gameInfo.auto_winner_count,
     })
-    if (giError) { skipped++; continue }
+    if (giError) {
+      errors.push(`game_info ${gameNo}: ${giError.message}`)
+      skipped++
+      break
+    }
 
     // Insert 6 win_numbers rows
     const balls = [
@@ -82,9 +112,10 @@ async function syncHandler(req: NextRequest): Promise<NextResponse> {
       balls.map((number, i) => ({ game_no: gameInfo.game_no, number, sequence: i + 1 }))
     )
     if (wnError) {
-      await supabase.from('game_info').delete().eq('game_no', gameInfo.game_no)
+      await rollback(supabase, gameNo, errors)
+      errors.push(`win_numbers ${gameNo}: ${wnError.message}`)
       skipped++
-      continue
+      break
     }
 
     // Insert bonus_number row
@@ -93,26 +124,31 @@ async function syncHandler(req: NextRequest): Promise<NextResponse> {
       number: gameInfo.bonus_ball,
     })
     if (bnError) {
-      await supabase.from('game_info').delete().eq('game_no', gameInfo.game_no)
+      await rollback(supabase, gameNo, errors)
+      errors.push(`bonus_number ${gameNo}: ${bnError.message}`)
       skipped++
-      continue
+      break
     }
 
     synced++
 
     // Grade any recommendations that targeted this now-drawn round.
-    await supabase.rpc('grade_recommendations', { p_game_no: gameInfo.game_no })
+    const { error: gradeErr } = await supabase.rpc('grade_recommendations', { p_game_no: gameInfo.game_no })
+    if (gradeErr) errors.push(`grade_recommendations ${gameNo}: ${gradeErr.message}`)
 
     // Brief pause to avoid hammering the official API
-    await new Promise(r => setTimeout(r, 300))
+    await new Promise(r => setTimeout(r, PAUSE_MS))
   }
 
   // New draws landed. Self-healing: grade any drawn-round picks that missed their
   // one-shot grade (e.g. inserted during this run's grading window), then rebuild
-  // the summary tables.
+  // the summary tables. RPC errors are reported, not swallowed — a failed
+  // refresh used to look like a successful run while /results silently froze.
   if (synced > 0) {
-    await supabase.rpc('grade_pending_recommendations')
-    await supabase.rpc('refresh_recommendation_summary')
+    const { error: pendErr } = await supabase.rpc('grade_pending_recommendations')
+    if (pendErr) errors.push(`grade_pending_recommendations: ${pendErr.message}`)
+    const { error: refreshErr } = await supabase.rpc('refresh_recommendation_summary')
+    if (refreshErr) errors.push(`refresh_recommendation_summary: ${refreshErr.message}`)
     // Evict caches (history "latest N" + the results summary) only AFTER the
     // tables are fresh, so a request landing mid-refresh can't re-prime the
     // summary cache with stale data. Best-effort per warm instance; other
@@ -120,7 +156,22 @@ async function syncHandler(req: NextRequest): Promise<NextResponse> {
     clearCache()
   }
 
-  return NextResponse.json({ synced, skipped, latestGameNo, lastSavedGameNo })
+  if (errors.length) console.error('[sync] completed with errors:', errors)
+  return NextResponse.json({
+    synced, skipped, latestGameNo, lastSavedGameNo,
+    remaining: Math.max(0, latestGameNo - (lastSavedGameNo + synced)),
+    ...(errors.length ? { errors } : {}),
+  })
+}
+
+// Compensating delete for a half-inserted draw (game_info without children).
+// Its own failure is recorded too: a leftover parent row renders as a `0`
+// ball on /history, so it must not go unnoticed.
+async function rollback(
+  supabase: ReturnType<typeof createAdminClient>, gameNo: number, errors: string[]
+) {
+  const { error } = await supabase.from('game_info').delete().eq('game_no', gameNo)
+  if (error) errors.push(`rollback ${gameNo}: ${error.message}`)
 }
 
 // Vercel Cron Jobs send GET requests; manual calls use POST

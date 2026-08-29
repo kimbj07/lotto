@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import NumberGrid from './NumberGrid'
+import { fetchJson } from '@/lib/fetchJson'
 import type { AppearanceCount, AppearanceSortBy, SortOrder } from '@/types/lotto'
 
 export default function StatsClient() {
@@ -10,25 +11,25 @@ export default function StatsClient() {
   const [stats, setStats] = useState<AppearanceCount[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Monotonic request id: flipping the sort twice on a slow connection used to
+  // let the OLDER response land last and show a sort the user isn't on.
+  const seqRef = useRef(0)
 
-  async function load() {
+  useEffect(() => {
+    const seq = ++seqRef.current
+    const controller = new AbortController()
     setLoading(true)
     setError(null)
     const params = new URLSearchParams({ sortBy, order })
-    try {
-      const res = await fetch(`/api/stats?${params}`)
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      setStats(data.stats)
-    } catch (e: unknown) {
-      setError((e as Error).message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    load()
+    fetchJson<{ stats: AppearanceCount[] }>(`/api/stats?${params}`, { signal: controller.signal })
+      .then((data) => { if (seq === seqRef.current) setStats(data.stats) })
+      .catch((e: unknown) => {
+        if (seq !== seqRef.current || (e as Error).name === 'AbortError') return
+        setError((e as Error).message)
+      })
+      .finally(() => { if (seq === seqRef.current) setLoading(false) })
+    // Abort the superseded request (and any in flight on unmount).
+    return () => controller.abort()
   }, [sortBy, order])
 
   return (
@@ -52,7 +53,7 @@ export default function StatsClient() {
             </select>
           </div>
         </div>
-        {error && <p className="mt-4 text-red-500 text-sm">{error}</p>}
+        {error && <p role="alert" className="mt-4 text-red-500 text-sm">{error}</p>}
       </div>
 
       {loading ? (

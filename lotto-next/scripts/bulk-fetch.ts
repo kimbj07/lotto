@@ -24,6 +24,7 @@
 import { createClient } from '@supabase/supabase-js'
 import type { GameInfo } from '../types/lotto'
 import { fetchLatestGameNo, fetchGameInfoWindow } from '../lib/lotto-api'
+import { getLatestGameNo } from '../lib/latestGameNo'
 
 const THROTTLE_MS = 250 // pause between official-site fetches
 const WINDOW = 10 // draws returned per selectPstLt645InfoNew.do call
@@ -109,14 +110,14 @@ async function main() {
     process.exit(1)
   }
 
-  const { data: maxRow } = await supabase
-    .from('game_info')
-    .select('game_no')
-    .order('game_no', { ascending: false })
-    .limit(1)
-    .single()
-
-  const lastSavedGameNo = (maxRow?.game_no as number | undefined) ?? 0
+  // Distinguish "empty table → start at 1" from "bad key / network error":
+  // the latter used to be swallowed and silently reseeded from game 1.
+  const latest = await getLatestGameNo(supabase)
+  if (!latest.ok) {
+    console.error(`Could not read the last saved game from the DB: ${latest.error}. Aborting.`)
+    process.exit(1)
+  }
+  const lastSavedGameNo = latest.gameNo
   const startAt = lastSavedGameNo + 1
 
   if (startAt > latestGameNo) {

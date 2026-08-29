@@ -1,7 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { computeRank } from '@/lib/rank'
+import { serverError } from '@/lib/apiError'
 import type { MyRankInGame } from '@/types/lotto'
+
+// PostgREST caps every response at the project's "Max rows" setting (1000 by
+// default). This lookup returns one row per matching ball across ALL draws —
+// ≈ 6 × 6/45 ≈ 0.8 rows per draw, i.e. ~984 rows at draw 1230 — so an
+// un-paged query already sits at the cap and truncates SILENTLY (older wins
+// simply vanish). Page through in fixed-size ranges instead.
+const PAGE = 500
+
+interface MatchRow { game_no: number; number: number }
 
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl
@@ -20,20 +30,24 @@ export async function GET(req: NextRequest) {
 
   const supabase = createServerClient()
 
-  // Count win number matches per game
-  const { data: winMatches, error: winErr } = await supabase
-    .from('win_numbers')
-    .select('game_no, number')
-    .in('number', numbers)
-
-  if (winErr) return NextResponse.json({ error: winErr.message }, { status: 500 })
-
-  // Aggregate match counts per game
+  // Count win number matches per game, paging past the response-size cap.
   const matchMap = new Map<number, { winCount: number; bonusCount: number }>()
-  for (const row of winMatches ?? []) {
-    const entry = matchMap.get(row.game_no) ?? { winCount: 0, bonusCount: 0 }
-    entry.winCount++
-    matchMap.set(row.game_no, entry)
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('win_numbers')
+      .select('game_no, number')
+      .in('number', numbers)
+      .order('game_no', { ascending: true })
+      .order('number', { ascending: true })
+      .range(from, from + PAGE - 1)
+    if (error) return serverError('my-numbers.win', error.message)
+    const rows = (data ?? []) as MatchRow[]
+    for (const row of rows) {
+      const entry = matchMap.get(row.game_no) ?? { winCount: 0, bonusCount: 0 }
+      entry.winCount++
+      matchMap.set(row.game_no, entry)
+    }
+    if (rows.length < PAGE) break
   }
 
   // Only games with 3+ win matches qualify
@@ -45,16 +59,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ results: [] })
   }
 
-  // Check bonus ball matches for qualifying games
+  // Check bonus ball matches for qualifying games (bounded: ≤ one row per
+  // qualifying game, and qualifying games are rare).
   const { data: bonusMatches, error: bonusErr } = await supabase
     .from('bonus_number')
     .select('game_no, number')
     .in('game_no', qualifyingGameNos)
     .in('number', numbers)
 
-  if (bonusErr) return NextResponse.json({ error: bonusErr.message }, { status: 500 })
+  if (bonusErr) return serverError('my-numbers.bonus', bonusErr.message)
 
-  for (const row of bonusMatches ?? []) {
+  for (const row of (bonusMatches ?? []) as MatchRow[]) {
     const entry = matchMap.get(row.game_no)
     if (entry) entry.bonusCount++
   }

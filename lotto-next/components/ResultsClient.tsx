@@ -6,15 +6,17 @@ import type {
   RecommendationRoundSummary,
   RecommendationModeSummary,
 } from '@/types/lotto'
+import { MODE_CONFIGS, isRecommendMode, modeConfig } from '@/lib/recommendModes'
+import { fetchJson } from '@/lib/fetchJson'
 
 const RANKS = [1, 2, 3, 4, 5] as const
 
 // Fixed display order + Korean labels for the per-mode breakdown.
-const MODE_LABELS: { key: string; label: string }[] = [
-  { key: 'stats', label: '통계 기반' },
-  { key: 'exception', label: '제외 기반' },
-  { key: 'random', label: '랜덤' },
-]
+const MODE_LABELS = MODE_CONFIGS.map(m => ({ key: m.key as string, label: m.label }))
+
+function gamesPerSlip(mode: string): number {
+  return isRecommendMode(mode) ? modeConfig(mode).games : 1
+}
 
 function wins(r: { rank1: number; rank2: number; rank3: number; rank4: number; rank5: number }) {
   return r.rank1 + r.rank2 + r.rank3 + r.rank4 + r.rank5
@@ -54,6 +56,29 @@ function RankChips({
   )
 }
 
+// Slip-level line for multi-game modes (target5): the metric that mode
+// optimises is "at least one of the slip's games ranked", not per-game wins.
+// Rendered only once migration 008 has populated slip columns.
+function SlipStats({ r }: { r: RecommendationModeSummary }) {
+  const total = r.slip_total ?? 0
+  if (total === 0) return null
+  const graded = r.slip_graded ?? 0
+  const hit = r.slip_hit ?? 0
+  return (
+    <p data-testid="slip-stats" className="text-sm text-gray-600">
+      한 장({gamesPerSlip(r.mode)}게임) 적중률{' '}
+      {graded > 0 ? (
+        <>
+          <b className="font-display text-brand-dark">{((hit / graded) * 100).toFixed(1)}%</b>
+          {' '}— {graded.toLocaleString()}장 중 {hit.toLocaleString()}장에서 1게임 이상 당첨
+        </>
+      ) : (
+        <span className="text-amber-700">{total.toLocaleString()}장 집계 예정</span>
+      )}
+    </p>
+  )
+}
+
 function ModeBreakdown({ byMode }: { byMode: RecommendationModeSummary[] }) {
   return (
     <div>
@@ -75,8 +100,14 @@ function ModeBreakdown({ byMode }: { byMode: RecommendationModeSummary[] }) {
                     집계 예정
                   </span>
                 ) : (
-                  <span className="font-display text-2xl text-brand-dark">
-                    {rate.toFixed(1)}%
+                  <span className="text-right">
+                    <span className="font-display text-2xl text-brand-dark">
+                      {rate.toFixed(1)}%
+                    </span>
+                    {/* Slip modes show two differently-scoped rates; label this one. */}
+                    {gamesPerSlip(key) > 1 && (
+                      <span className="block text-[11px] text-gray-400">게임당 적중률</span>
+                    )}
                   </span>
                 )}
               </div>
@@ -88,6 +119,7 @@ function ModeBreakdown({ byMode }: { byMode: RecommendationModeSummary[] }) {
                     </p>
                   )}
                   <RankChips r={r} />
+                  <SlipStats r={r} />
                 </>
               )}
             </div>
@@ -104,18 +136,12 @@ export default function ResultsClient() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    ;(async () => {
-      try {
-        const res = await fetch('/api/recommendations/summary')
-        const json = await res.json()
-        if (!res.ok) throw new Error(json.error)
-        setData(json)
-      } catch (e: unknown) {
-        setError((e as Error).message)
-      } finally {
-        setLoading(false)
-      }
-    })()
+    let alive = true // no setState after unmount
+    fetchJson<RecommendationSummary>('/api/recommendations/summary')
+      .then((json) => { if (alive) setData(json) })
+      .catch((e: unknown) => { if (alive) setError((e as Error).message) })
+      .finally(() => { if (alive) setLoading(false) })
+    return () => { alive = false }
   }, [])
 
   if (loading) return <p className="text-gray-400 text-center py-8">불러오는 중...</p>

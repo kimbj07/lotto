@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Script from 'next/script'
 import { SITE_URL, SITE_NAME } from '@/lib/siteConfig'
 
@@ -48,6 +48,9 @@ function initKakao() {
 
 export default function KakaoShareButton() {
   const [copied, setCopied] = useState(false)
+  // Clear the "copied" reset timer on unmount (no setState after unmount).
+  const copiedTimer = useRef<ReturnType<typeof setTimeout>>()
+  useEffect(() => () => clearTimeout(copiedTimer.current), [])
 
   const share = useCallback(async () => {
     const Kakao = window.Kakao
@@ -74,7 +77,8 @@ export default function KakaoShareButton() {
     try {
       await navigator.clipboard.writeText(`${SHARE_MESSAGE}\n${SITE_URL}`)
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      clearTimeout(copiedTimer.current)
+      copiedTimer.current = setTimeout(() => setCopied(false), 2000)
     } catch {
       /* clipboard unavailable — nothing more we can do */
     }

@@ -44,7 +44,9 @@ export interface MyRankInGame {
   rank: 1 | 2 | 3 | 4 | 5 | null
 }
 
-export type RecommendMode = 'stats' | 'exception' | 'random'
+// Per-mode config (labels, game counts, exclude caps, odds) lives in
+// lib/recommendModes.ts — this file stays type-only.
+export type RecommendMode = 'stats' | 'exception' | 'random' | 'target5'
 
 export type SortOrder = 'ASC' | 'DESC'
 
@@ -70,6 +72,11 @@ export interface RecommendationModeSummary {
   rank3: number
   rank4: number
   rank5: number
+  // Slip-level stats (migration 008): only populated for modes that record
+  // multi-game slips (target5). A slip "hits" when any of its games ranks.
+  slip_total?: number
+  slip_graded?: number
+  slip_hit?: number
 }
 
 export interface RecommendationSummary {

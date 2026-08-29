@@ -1,9 +1,9 @@
 # 행운로또 — Project Handoff / Continue on Another PC
 
 Portable, self-contained guide to pick this project back up on a different machine.
-**No secrets are stored here** — only where to obtain each one. Last updated 2026-07-07
-(app is live, merged through **PR #27**; latest `master` = `53f2b5d`, which added an
-이름 궁합 promo banner — see §7).
+**No secrets are stored here** — only where to obtain each one. Last updated 2026-08-29
+(app is live, merged through **PR #28**; **PR #29** adds the 5등 노리기 mode — see §1/§8.
+Canonical domain is now **luck-lotto.vercel.app**, `efb3748`).
 
 For the full PR-by-PR history see [`docs/superpowers/progress/lotto-nextjs-rewrite-progress.md`](superpowers/progress/lotto-nextjs-rewrite-progress.md)
 and `git log` (squash-merge commits are tagged `(#N)`). The spec + plans live under
@@ -16,17 +16,29 @@ and `git log` (squash-merge commits are tagged `(#N)`). The spec + plans live un
 A Korean lotto helper — Next.js 14 (App Router) + Supabase (Postgres) + Vercel,
 rewritten from a legacy Java Spring MVC + iBatis + MySQL app. No auth; fully public.
 
-- **Live:** https://lotto-two-delta.vercel.app
+- **Live:** https://luck-lotto.vercel.app (canonical, `lib/siteConfig.ts`; the old
+  `lotto-two-delta.vercel.app` alias still resolves).
 - **Repo:** https://github.com/kimbj07/lotto (GitHub account **kimbj07**), default branch `master`.
-- **App code:** `lotto-next/` (the legacy Java project sits beside it under `lotto/`).
+- **App code:** `lotto-next/` (the legacy Java project sits beside it under `src/`).
 - **Sister apps:** **멍사주** https://mengsaju.vercel.app (`kimbj07/mengsaju`) and
-  **이름 궁합** https://gunghap-three.vercel.app (`kimbj07/gunghap`) — the apps cross-promote
+  **이름 궁합** https://name-gunghap.vercel.app (`kimbj07/gunghap`) — the apps cross-promote
   each other. See §7.
 
 Pages: `/` (number recommender + include/exclude pickers + draw animation + Kakao share),
 `/history`, `/my-numbers`, `/stats`, `/results` (번호 추천 결과). Every page has a footer
 with **two** promo banners (멍사주 + 이름 궁합), rendered from the `BANNERS` array in
 `components/PromoBanner.tsx`.
+
+Recommendation modes (`lib/recommend.ts`, `/api/recommend?mode=`): `stats`, `exception`,
+`random` (one 6-number game each) and **`target5` = 5등 노리기** (PR #29): one 5-game slip
+whose 30 numbers never overlap. Exact enumeration over all C(45,6) draws gives
+P(≥1 of the 5 games matches 3+) = **11.87%** vs 11.36% for 5 independent random games
+(2.38% for one game); the expected number of winning games is identical for every layout
+(the draw is uniform), only the overlap between the games' win events changes. The UI says
+so plainly. Every mode responds with `{ games: number[][] }` (single-game modes also
+mirror `numbers = games[0]`, deprecated); the 5 games are recorded as 5 `recommendations`
+rows sharing a `slip_id`. Mode labels/descriptions/game counts/exclude caps/odds live in
+one table, `lib/recommendModes.ts` — add a mode there, not in the components.
 
 ---
 
@@ -60,8 +72,13 @@ dashboard access on the new PC, sign in with the same accounts that own those pr
 ```bash
 PORT=3100 npm run dev      # or: npm run start after npm run build
 npm test                   # Jest + Testing Library
+npm run lint               # ESLint (next/core-web-vitals) — added in PR #29; ran never before
 npm run build              # compile + type-check + lint
 ```
+
+**CI:** `.github/workflows/ci.yml` runs `tsc --noEmit`, `npm run lint`, `npm test`, `npm run build`
+on every PR and on `master` (added in PR #29 — before that nothing ran the tests, which is how
+3 of the 4 `/api/sync` tests stayed broken-and-unnoticed from PR #7 onward).
 
 ---
 
@@ -81,8 +98,14 @@ npm run build              # compile + type-check + lint
   manual deploy step. Preview deploys for non-prod branches are auth-gated (login to view)
   and **share the production Supabase** — seeded/DDL changes there affect prod too.
 - **Supabase migrations are DDL** and must be applied **by a human in the Supabase SQL
-  editor** (the service_role REST key can't run DDL). Migrations `001–007` are all applied.
-  New migrations live in `supabase/migrations/`.
+  editor** (the service_role REST key can't run DDL). Migrations `001–007` are applied.
+  **`008_target5_slips.sql` (PR #29): apply it BEFORE merging** — it is purely additive
+  (nullable column + defaulted columns), so old code is unaffected, and applying first
+  means every target5 slip gets a `slip_id`. Then run `select refresh_recommendation_summary();`
+  once so the slip columns are populated before the next Sunday cron. If the code ships
+  first anyway the app still works, but slips recorded in that window are stored without
+  `slip_id` and are permanently excluded from the slip-level stats. New migrations live in
+  `supabase/migrations/`.
 
 ---
 
@@ -121,6 +144,35 @@ Auth via `CRON_SECRET` (unauth → 401). `/api/sync` grades the new draw and reb
 summary tables, then evicts the in-memory cache (`lib/cache.ts`, 1h TTL) **after** the
 rebuild.
 
+Failure behaviour (hardened in PR #29 — read this before "fixing" a sync):
+- Draws are inserted **in order and the loop stops at the first failure** (`break`, not
+  `continue`). The next run resumes from `max(game_no)`, so a failed draw is retried, never
+  skipped. (Before: a transient failure on draw N with N+1 succeeding left N missing forever.)
+- At most **10 draws per run** (`MAX_GAMES_PER_RUN`), `maxDuration = 60`, 8s upstream timeout.
+  A long outage is caught up over several Sundays; the response's `remaining` says how many
+  are left. Trigger `POST /api/sync` by hand with the secret to catch up faster.
+- The response includes `errors: string[]` when any insert/RPC failed — a run that says
+  `synced: 1` but lists a `refresh_recommendation_summary` error means `/results` is stale.
+  Check the Vercel cron log; nothing else alerts.
+- dhlottery unreachable → 502; DB error reading `max(game_no)` → 500 and **nothing is synced**
+  (the old fallback to 0 re-fetched every draw since 2002). `lib/latestGameNo.ts` is the one
+  place that reads the latest draw — every route and the seed script use it.
+
+## 5a. Other operational guards (PR #29)
+
+- **Rate limit** on `/api/recommend` (`middleware.ts`): 20 req/min per IP, 429 with
+  `Retry-After`. It's an in-memory bucket per edge instance — a speed bump against a casual
+  loop, not protection against a distributed client. Upgrade path: `@upstash/ratelimit`.
+- **CDN caching**: `/api/history`, `/api/stats`, `/api/recommendations/summary` send
+  `Cache-Control: public, s-maxage=3600, stale-while-revalidate=86400` (`lib/httpCache.ts`).
+  No purge on cron — data can be up to 1h stale after a draw, same as the in-memory TTL.
+- **Error contract**: routes never return raw Postgres/PostgREST text; they log it and return
+  `{ error: <fixed Korean message>, code }` (`lib/apiError.ts`). Clients go through
+  `lib/fetchJson.ts`, which checks `res.ok` before parsing (a Vercel 504 HTML page no longer
+  renders as "Unexpected token '<'").
+- `/api/my-numbers` pages `win_numbers` in 500-row ranges. The old single query sat at
+  PostgREST's default 1000-row cap (~984 rows at draw 1230) and **truncated silently**.
+
 ---
 
 ## 6. State of the data
@@ -138,7 +190,7 @@ draw. 1230 draws are seeded (`game_info`, `win_numbers`, `bonus_number`); latest
 Tailwind v4, live at mengsaju.vercel.app, auto-deploys from `main`).
 
 `~/workspace/gunghap` — 이름 궁합 (`kimbj07/gunghap`, Vite + React 19 + TS + Tailwind,
-live at gunghap-three.vercel.app, deploys from `feat/app`).
+live at name-gunghap.vercel.app, deploys from `feat/app`).
 
 The apps run a **reciprocal cross-promo**. This repo's `components/PromoBanner.tsx` is a
 `BANNERS` array that renders **both** a 멍사주 banner and an 이름 궁합 banner in the footer
@@ -163,11 +215,24 @@ mengsaju operational quirks (differ from this repo):
 ## 8. Open ideas / possible next tasks
 
 No hard blockers. Recently shipped: Kakao share (working), lottery-cage draw animation,
-reciprocal cross-promo banners (멍사주 + 이름 궁합, `53f2b5d`). Candidate follow-ups (not committed to):
+reciprocal cross-promo banners (멍사주 + 이름 궁합), canonical domain luck-lotto.vercel.app,
+5등 노리기 mode (PR #29). Candidate follow-ups (not committed to):
 
+- **Apply migration 008** in Supabase before PR #29 merges (see §3).
+- Not done in PR #29 (deliberately, needs its own decision/migration): single-source the
+  prize-rank rule (`lib/rank.ts` + two SQL graders) as one SQL function; split
+  `refresh_recommendation_summary()` so it stops being redefined verbatim per migration;
+  a `schema_migrations` table; deleting the legacy Java tree at the repo root (`src/`,
+  `build.gradle`, `gradle*` — 23MB, unreferenced since 2019; tag `legacy-java-final` first);
+  server-rendering `/history` `/stats` `/results` (helps LCP/crawlers on those three pages
+  only — `/` is action-driven and gains nothing).
+- After a few weekly crons, compare the target5 slip hit-rate on `/results` against the
+  11.87% theoretical value; if the owner wants more, the natural extension is a 7-game
+  layout covering 42 numbers (needs a 7-game UI + `TARGET5_GAMES` generalisation).
 - Verify Kakao share attribution + cross-promo UTM traffic in Vercel Analytics.
 - Consider share-count / lightweight analytics on the recommend flow.
-- Revisit the recommend algorithms (stats/exception modes) if win-rate data suggests tuning.
+- The stats/exception modes cannot beat 2.38%/game — a lotto draw is uniform. Don't spend
+  time "tuning" them for win-rate; only slip layout (target5) moves the at-least-one odds.
 
 Keep this file current when you finish notable work, alongside the PR changelog in
 `docs/superpowers/progress/`.

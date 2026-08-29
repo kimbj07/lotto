@@ -75,21 +75,33 @@ export function parseLt645Entry(e: Lt645Entry): GameInfo {
   }
 }
 
+// Upstream timeout. Without it a hanging dhlottery held the sync function
+// until Vercel killed it — after the inserts but before grading/refresh.
+export const UPSTREAM_TIMEOUT_MS = 8_000
+
 async function fetchJson(path: string): Promise<unknown> {
   const res = await fetch(`${BASE_URL}${path}`, {
     headers: { 'User-Agent': USER_AGENT, Referer: `${BASE_URL}/` },
     cache: 'no-store',
+    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
   })
   if (!res.ok) {
     throw new Error(`Request failed (${res.status}): ${path}`)
   }
-  return res.json()
+  // A maintenance page is served as HTML with 200; surface that as a clear
+  // upstream error instead of a bare SyntaxError.
+  try {
+    return await res.json()
+  } catch {
+    throw new Error(`Non-JSON response from dhlottery: ${path}`)
+  }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function asEntries(json: any, ...path: string[]): Lt645Entry[] {
-  let node = json
-  for (const key of path) node = node?.[key]
+function asEntries(json: unknown, ...path: string[]): Lt645Entry[] {
+  let node: unknown = json
+  for (const key of path) {
+    node = node && typeof node === 'object' ? (node as Record<string, unknown>)[key] : undefined
+  }
   return Array.isArray(node) ? (node as Lt645Entry[]) : []
 }
 

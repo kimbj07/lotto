@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { getCached, setCached } from '@/lib/cache'
+import { getLatestGameNo } from '@/lib/latestGameNo'
+import { serverError } from '@/lib/apiError'
+import { WEEKLY_CACHE_CONTROL } from '@/lib/httpCache'
 import type { GameInfo } from '@/types/lotto'
+
+const CACHE_HEADERS = { 'Cache-Control': WEEKLY_CACHE_CONTROL }
 
 // Only bounded counts are cached, so a user-controlled `?count=999999` can never
 // grow the cache Map unboundedly; larger counts fall through to a normal fetch.
@@ -38,7 +43,7 @@ export async function GET(req: NextRequest) {
       : null
   if (cacheKey) {
     const cached = getCached<GameInfo[]>(cacheKey)
-    if (cached) return NextResponse.json({ games: cached })
+    if (cached) return NextResponse.json({ games: cached }, { headers: CACHE_HEADERS })
   }
 
   // When a bounded `count` is requested without an explicit range (the default
@@ -49,13 +54,10 @@ export async function GET(req: NextRequest) {
   let effectiveFrom = from
   let effectiveTo = to
   if (count !== null && from === null && to === null) {
-    const { data: latestRow } = await supabase
-      .from('game_info')
-      .select('game_no')
-      .order('game_no', { ascending: false })
-      .limit(1)
-      .single()
-    const latestNo = (latestRow?.game_no as number | undefined) ?? 0
+    // A DB error here used to be swallowed into "no window" → full-table scan.
+    const latest = await getLatestGameNo(supabase)
+    if (!latest.ok) return serverError('history.latest', latest.error)
+    const latestNo = latest.gameNo
     if (latestNo > 0) {
       if (order === 'DESC') {
         effectiveFrom = Math.max(1, latestNo - count + 1)
@@ -73,7 +75,7 @@ export async function GET(req: NextRequest) {
     p_order: order,
   })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) return serverError('history', error.message)
 
   let games = (data as GameInfo[]) ?? []
   // `count` caps the result to the first N rows (in the requested order) —
@@ -85,5 +87,5 @@ export async function GET(req: NextRequest) {
   // an empty (table-cold) [] is never cached so freshly-seeded data isn't hidden.
   if (cacheKey && games.length > 0) setCached(cacheKey, games)
 
-  return NextResponse.json({ games })
+  return NextResponse.json({ games }, { headers: CACHE_HEADERS })
 }
