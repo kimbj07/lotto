@@ -36,9 +36,21 @@ describe('PatternCheckClient', () => {
     const cards = within(section).getByTestId('pattern-cards')
     expect(within(cards).getAllByRole('listitem')).toHaveLength(5)
     expect(within(cards).getAllByText('차이 없음')).toHaveLength(4)
-    expect(within(section).getByText('균등')).toBeInTheDocument()
-    expect(within(section).getByText('-0.314')).toBeInTheDocument()
-    expect(within(section).getByText(/활용할 수 있는 패턴은 없습니다/)).toBeInTheDocument()
+    // statistics are read out in plain Korean first, number in parens after
+    expect(within(table).getAllByText(/우연 범위 안 \(z /)).toHaveLength(4)
+    expect(within(section).getByText(/χ² 29.4, 기준 60.48/)).toBeInTheDocument()
+    expect(within(section).getByText('이어지지 않음')).toBeInTheDocument()
+    expect(within(section).getByText(/r -0.314/)).toBeInTheDocument()
+    // this fixture has one 'more' verdict, so the conclusion hedges
+    expect(within(section).getByText(/우연 범위를 벗어났지만/)).toBeInTheDocument()
+    expect(within(section).getByText(/2.38%/)).toBeInTheDocument()
+  })
+
+  it('states there is no pattern when every verdict is none and the counts are uniform', async () => {
+    const clean = { ...report, tests: report.tests.map(t => ({ ...t, verdict: 'none' as const, z: 0.5 })) }
+    global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => clean }) as unknown as typeof fetch
+    render(<PatternCheckClient />)
+    expect(await screen.findByText(/활용할 수 있는 패턴은 없습니다/)).toBeInTheDocument()
   })
 
   it('shows the empty state and the error state', async () => {
